@@ -21,3 +21,4 @@ bench-sqlite/
 # Logs
 *.log
 npm-debug.log*
+benchmark.js

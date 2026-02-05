@@ -1,0 +1,66 @@
+{
+  "name": "titankv",
+  "version": "1.0.0",
+  "description": "Ultra-fast in-process key-value store for Node.js. 73x faster than LevelDB, Redis-like API.",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "gypfile": true,
+  "scripts": {
+    "install": "prebuild-install || node-gyp rebuild",
+    "rebuild": "node-gyp rebuild",
+    "test": "node test/index.js",
+    "benchmark": "node test/benchmark.js",
+    "prebuild": "prebuildify --napi --strip"
+  },
+  "keywords": [
+    "kv",
+    "key-value",
+    "database",
+    "cache",
+    "store",
+    "redis",
+    "leveldb",
+    "native",
+    "fast",
+    "memory",
+    "persistence",
+    "wal",
+    "ttl"
+  ],
+  "author": "jojibyte",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jojibyte/titankv.git"
+  },
+  "homepage": "https://github.com/jojibyte/titankv#readme",
+  "bugs": {
+    "url": "https://github.com/jojibyte/titankv/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "lib",
+    "include",
+    "src",
+    "prebuilds",
+    "binding.gyp",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "bindings": "*",
+    "node-addon-api": "*",
+    "prebuild-install": "*"
+  },
+  "devDependencies": {
+    "node-gyp": "*",
+    "prebuildify": "*"
+  },
+  "binary": {
+    "napi_versions": [
+      8
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+prebuilds/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test data
+test/test-data/
+bench-leveldb/
+bench-sqlite/
+
+# Logs
+*.log
+npm-debug.log*

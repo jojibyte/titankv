@@ -15,12 +15,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - run: npm install --ignore-scripts
+      - run: npm rebuild
       - run: npm test
 
   build:
     needs: test
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -40,9 +42,17 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --ignore-scripts
 
-      - name: Build prebuild
+      - name: Build native module
+        run: npm rebuild
+        env:
+          npm_config_arch: ${{ matrix.arch }}
+
+      - name: Run tests
+        run: npm test
+
+      - name: Create prebuild
         run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
         env:
           npm_config_arch: ${{ matrix.arch }}
@@ -75,8 +85,11 @@ jobs:
           path: prebuilds/
           merge-multiple: true
 
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
       - name: List prebuilds
-        run: ls -la prebuilds/
+        run: ls -la prebuilds/ || echo "No prebuilds"
 
       - name: Publish to npm
         run: npm publish --provenance --access public

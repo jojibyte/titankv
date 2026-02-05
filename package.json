@@ -50,7 +50,10 @@
     "LICENSE"
   ],
   "dependencies": {
+    "better-sqlite3": "^12.6.2",
     "bindings": "*",
+    "classic-level": "^3.0.0",
+    "ioredis": "^5.9.2",
     "node-addon-api": "*",
     "prebuild-install": "*"
   },

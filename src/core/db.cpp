@@ -105,7 +105,9 @@ int64_t TitanEngine::incr(const std::string& key, int64_t delta) {
     auto it = store_.find(key);
     int64_t val = 0;
     if (it != store_.end() && !isExpired(it->second)) {
-        try { val = std::stoll(it->second.value); } catch (...) {}
+        char* end;
+        long long parsed = std::strtoll(it->second.value.c_str(), &end, 10);
+        if (end != it->second.value.c_str()) val = parsed;
     }
     val += delta;
     std::string new_val = std::to_string(val);

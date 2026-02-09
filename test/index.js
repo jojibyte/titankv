@@ -141,6 +141,22 @@ async function runTests() {
     tx2.discard();
     test('tx discard', tx2.length === 0);
 
+    // Verify transaction return value structure
+    const tx3 = db.multi();
+    tx3.put('tx:check', 'ok');
+    tx3.get('tx:check');
+    tx3.incr('tx:inc');
+    tx3.del('tx:check');
+    const res3 = tx3.exec();
+
+    test('tx returns correct structure',
+        res3.length === 4 &&
+        res3[0] === undefined &&
+        res3[1] === 'ok' &&
+        res3[2] === 1 &&
+        res3[3] === true
+    );
+
     // === Pub/Sub ===
     section('Pub/Sub');
 

@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 20
       - run: npm install --ignore-scripts
-      - run: npm rebuild
+      - run: npx cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5
       - run: npm test
 
   build:
@@ -46,7 +46,7 @@ jobs:
         run: npm install --ignore-scripts
 
       - name: Build native module
-        run: npm rebuild
+        run: npx cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         env:
           npm_config_arch: ${{ matrix.arch }}
 
@@ -54,7 +54,7 @@ jobs:
         run: npm test
 
       - name: Create prebuild
-        run: npx prebuildify --napi --strip --arch ${{ matrix.arch }}
+        run: npx prebuildify --napi --strip --backend cmake-js -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         env:
           npm_config_arch: ${{ matrix.arch }}
 

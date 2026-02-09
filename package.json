@@ -4,14 +4,13 @@
   "description": "ultra-fast embedded key-value engine for node.js. zstd compression, redis-like api, wal persistence. no server needed.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "gypfile": true,
   "scripts": {
-    "install": "cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+    "install": "prebuild-install -r napi || cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     "rebuild": "cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     "test": "node test/index.js",
     "benchmark": "node test/benchmark.js",
     "test:all": "node test/index.js && node test/benchmark.js",
-    "prebuild": "prebuildify --napi --strip"
+    "prebuild": "prebuildify --napi --strip --backend cmake-js -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
   },
   "keywords": [
     "kv",
@@ -58,11 +57,11 @@
   ],
   "dependencies": {
     "bindings": "^1.5.0",
+    "cmake-js": "^8.0.0",
     "node-addon-api": "^8.5.0",
     "prebuild-install": "^7.1.3"
   },
   "devDependencies": {
-    "cmake-js": "^8.0.0",
     "prebuildify": "^6.0.1"
   },
   "binary": {

@@ -104,8 +104,8 @@ public:
 private:
     mutable std::shared_mutex mutex_;
     std::unordered_map<std::string, ValueEntry, FastHash> store_;
-    std::map<std::string, std::deque<std::string>> lists_;
-    std::map<std::string, std::unordered_set<std::string>> sets_;
+    std::unordered_map<std::string, std::deque<std::string>, FastHash> lists_;
+    std::unordered_map<std::string, std::unordered_set<std::string>, FastHash> sets_;
     std::unique_ptr<WAL> wal_;
     int64_t start_time_;
     mutable Stats stats_;

@@ -8,60 +8,50 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install --ignore-scripts
-      - run: npx cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-      - run: npm test
-
   build:
-    needs: test
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            platform: linux
             arch: x64
           - os: macos-latest
+            platform: darwin
             arch: x64
           - os: macos-latest
+            platform: darwin
             arch: arm64
           - os: windows-latest
+            platform: win32
             arch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          architecture: ${{ matrix.arch }}
 
       - name: Install dependencies
         run: npm install --ignore-scripts
 
       - name: Build native module
         run: npx cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        env:
-          npm_config_arch: ${{ matrix.arch }}
 
       - name: Run tests
         run: npm test
 
-      - name: Create prebuild
-        run: npx prebuildify --napi --strip --backend cmake-js -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        env:
-          npm_config_arch: ${{ matrix.arch }}
+      - name: Copy prebuild
+        shell: bash
+        run: |
+          mkdir -p prebuilds/${{ matrix.platform }}-${{ matrix.arch }}
+          cp build/Release/titankv.node prebuilds/${{ matrix.platform }}-${{ matrix.arch }}/node.napi.node
 
       - name: Upload prebuild
         uses: actions/upload-artifact@v4
         with:
-          name: prebuild-${{ matrix.os }}-${{ matrix.arch }}
+          name: prebuild-${{ matrix.platform }}-${{ matrix.arch }}
           path: prebuilds/
 
   publish:
@@ -73,7 +63,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -86,11 +76,11 @@ jobs:
           path: prebuilds/
           merge-multiple: true
 
+      - name: List prebuilds
+        run: find prebuilds/ -type f || echo "No prebuilds"
+
       - name: Install dependencies
         run: npm install --ignore-scripts
-
-      - name: List prebuilds
-        run: ls -la prebuilds/ || echo "No prebuilds"
 
       - name: Publish to npm
         run: npm publish --provenance --access public

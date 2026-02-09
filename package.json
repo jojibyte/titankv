@@ -5,12 +5,11 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "install": "prebuild-install -r napi || cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+    "install": "node-gyp-build || cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     "rebuild": "cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     "test": "node test/index.js",
     "benchmark": "node test/benchmark.js",
-    "test:all": "node test/index.js && node test/benchmark.js",
-    "prebuild": "prebuildify --napi --strip --backend cmake-js -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+    "test:all": "node test/index.js && node test/benchmark.js"
   },
   "keywords": [
     "kv",
@@ -56,13 +55,9 @@
     "LICENSE"
   ],
   "dependencies": {
-    "bindings": "^1.5.0",
     "cmake-js": "^8.0.0",
     "node-addon-api": "^8.5.0",
-    "prebuild-install": "^7.1.3"
-  },
-  "devDependencies": {
-    "prebuildify": "^6.0.1"
+    "node-gyp-build": "^4.8.4"
   },
   "binary": {
     "napi_versions": [

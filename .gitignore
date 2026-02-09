@@ -18,7 +18,16 @@ test/test-data/
 bench-leveldb/
 bench-sqlite/
 
+# Database / WAL files
+*.wal
+my-npm-db/
+
 # Logs
 *.log
 npm-debug.log*
 benchmark.js
+.t
+bench_db
+bench_data/titan.t
+series.json
+bench-data

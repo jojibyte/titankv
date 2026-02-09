@@ -3,11 +3,16 @@
 
 namespace titan {
 
-WAL::WAL(const std::filesystem::path& dir, SyncMode mode)
-    : mode_(mode) {
-    std::filesystem::create_directories(dir);
-    path_ = dir / "titan.wal";
+WAL::WAL(const std::filesystem::path& dir) {
+    if (!std::filesystem::exists(dir)) {
+        std::filesystem::create_directories(dir);
+    }
+    path_ = dir / "titan.t";
     file_.open(path_, std::ios::binary | std::ios::app);
+    if (!file_.is_open()) {
+        throw std::runtime_error("failed to open WAL file: " + path_.string());
+    }
+    compressor_ = std::make_unique<Compressor>();
 }
 
 WAL::~WAL() {
@@ -17,76 +22,107 @@ WAL::~WAL() {
     }
 }
 
-void WAL::writeEntry(WalOp op, const std::string& key, const std::string& value) {
-    uint32_t key_len = static_cast<uint32_t>(key.size());
-    uint32_t val_len = static_cast<uint32_t>(value.size());
+void WAL::writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value) {
+    uint32_t klen = static_cast<uint32_t>(key.size());
+    uint32_t vlen = static_cast<uint32_t>(value.size());
+    uint8_t op_byte = static_cast<uint8_t>(op);
 
-    file_.write(reinterpret_cast<const char*>(&op), 1);
-    file_.write(reinterpret_cast<const char*>(&key_len), 4);
-    file_.write(reinterpret_cast<const char*>(&val_len), 4);
-    file_.write(key.data(), key_len);
-    file_.write(value.data(), val_len);
-}
+    TITAN_ASSERT(klen > 0, "empty key in WAL write");
 
-void WAL::maybeFlush() {
-    unflushed_++;
-    if (mode_ == SyncMode::SYNC) {
-        file_.flush();
-        unflushed_ = 0;
-    } else if (mode_ == SyncMode::ASYNC && unflushed_ >= 100) {
-        file_.flush();
-        unflushed_ = 0;
+    file_.write(reinterpret_cast<const char*>(&op_byte), 1);
+    file_.write(reinterpret_cast<const char*>(&klen), 4);
+    if (op == WalOp::PUT) {
+        file_.write(reinterpret_cast<const char*>(&vlen), 4);
+    }
+    file_.write(key.data(), klen);
+    if (op == WalOp::PUT) {
+        file_.write(reinterpret_cast<const char*>(value.data()), vlen);
     }
 }
 
 void WAL::logPut(const std::string& key, const std::string& value) {
-    std::lock_guard lock(mutex_);
-    writeEntry(WalOp::PUT, key, value);
-    maybeFlush();
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto compressed = compressor_->compress(value, 15);
+    writeEntry(WalOp::PUT, key, compressed);
+    file_.flush();
+}
+
+void WAL::logPutCompressed(const std::string& key, const std::vector<uint8_t>& compressed_value) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    writeEntry(WalOp::PUT, key, compressed_value);
+    file_.flush();
 }
 
 void WAL::logDel(const std::string& key) {
-    std::lock_guard lock(mutex_);
-    writeEntry(WalOp::DEL, key, "");
-    maybeFlush();
+    std::lock_guard<std::mutex> lock(mutex_);
+    writeEntry(WalOp::DEL, key, {});
+    file_.flush();
 }
 
 void WAL::flush() {
-    std::lock_guard lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     file_.flush();
-    unflushed_ = 0;
 }
 
-std::vector<WAL::LogEntry> WAL::recover() {
+std::vector<LogEntry> WAL::recover() {
     std::vector<LogEntry> entries;
     std::ifstream in(path_, std::ios::binary);
-    if (!in) return entries;
+    if (!in.is_open()) return entries;
 
     while (in.peek() != EOF) {
-        LogEntry e;
-        uint8_t op;
-        uint32_t key_len, val_len;
+        uint8_t op_byte;
+        if (!in.read(reinterpret_cast<char*>(&op_byte), 1)) break;
+        WalOp op = static_cast<WalOp>(op_byte);
 
-        if (!in.read(reinterpret_cast<char*>(&op), 1)) break;
-        if (!in.read(reinterpret_cast<char*>(&key_len), 4)) break;
-        if (!in.read(reinterpret_cast<char*>(&val_len), 4)) break;
+        uint32_t klen;
+        if (!in.read(reinterpret_cast<char*>(&klen), 4)) break;
 
-        e.op = static_cast<WalOp>(op);
-        e.key.resize(key_len);
-        e.value.resize(val_len);
+        uint32_t vlen = 0;
+        if (op == WalOp::PUT) {
+            if (!in.read(reinterpret_cast<char*>(&vlen), 4)) break;
+        }
 
-        if (!in.read(e.key.data(), key_len)) break;
-        if (!in.read(e.value.data(), val_len)) break;
+        std::string key(klen, '\0');
+        if (!in.read(key.data(), klen)) break;
 
-        entries.push_back(std::move(e));
+        std::vector<uint8_t> value;
+        if (op == WalOp::PUT) {
+            constexpr uint32_t MAX_VALUE_SIZE = 100 * 1024 * 1024;
+            if (vlen > MAX_VALUE_SIZE) {
+                throw std::runtime_error("corrupt WAL: value too large");
+            }
+            value.resize(vlen);
+            if (!in.read(reinterpret_cast<char*>(value.data()), vlen)) break;
+        }
+
+        entries.push_back({op, std::move(key), std::move(value)});
     }
     return entries;
 }
 
-void WAL::compact() {
-    std::lock_guard lock(mutex_);
+void WAL::compact(const std::vector<LogEntry>& active_entries) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     file_.close();
-    std::filesystem::remove(path_);
+    auto temp_path = path_;
+    temp_path += ".tmp";
+    std::ofstream out(temp_path, std::ios::binary | std::ios::trunc);
+
+    for (const auto& entry : active_entries) {
+        uint32_t klen = static_cast<uint32_t>(entry.key.size());
+        uint32_t vlen = static_cast<uint32_t>(entry.value.size());
+        uint8_t op_byte = static_cast<uint8_t>(WalOp::PUT);
+
+        out.write(reinterpret_cast<const char*>(&op_byte), 1);
+        out.write(reinterpret_cast<const char*>(&klen), 4);
+        out.write(reinterpret_cast<const char*>(&vlen), 4);
+        out.write(entry.key.data(), klen);
+        out.write(reinterpret_cast<const char*>(entry.value.data()), vlen);
+    }
+    out.flush();
+    out.close();
+
+    std::filesystem::rename(temp_path, path_);
     file_.open(path_, std::ios::binary | std::ios::app);
 }
 

@@ -38,8 +38,10 @@ std::string Compressor::decompress(const std::vector<uint8_t>& compressed) {
     TITAN_ASSERT(content_size != ZSTD_CONTENTSIZE_UNKNOWN, "unknown content size");
     TITAN_ASSERT(content_size != ZSTD_CONTENTSIZE_ERROR, "invalid compressed data");
 
-    constexpr unsigned long long MAX_DECOMPRESS = 1024ULL * 1024 * 1024;
-    TITAN_ASSERT(content_size < MAX_DECOMPRESS, "decompressed size exceeds 1GB limit");
+    constexpr unsigned long long MAX_DECOMPRESS = 100ULL * 1024 * 1024;
+    if (content_size >= MAX_DECOMPRESS) {
+        throw std::runtime_error("decompressed size exceeds 100MB limit");
+    }
 
     std::string output;
     output.resize(content_size);

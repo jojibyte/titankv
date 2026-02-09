@@ -77,9 +77,18 @@ std::vector<LogEntry> WAL::recover() {
         uint32_t klen;
         if (!in.read(reinterpret_cast<char*>(&klen), 4)) break;
 
+        constexpr uint32_t MAX_KEY_SIZE = 1024 * 1024; // 1MB
+        if (klen == 0 || klen > MAX_KEY_SIZE) {
+            throw std::runtime_error("corrupt WAL: invalid key length");
+        }
+
         uint32_t vlen = 0;
         if (op == WalOp::PUT) {
             if (!in.read(reinterpret_cast<char*>(&vlen), 4)) break;
+            constexpr uint32_t MAX_VALUE_SIZE = 100 * 1024 * 1024; // 100MB
+            if (vlen > MAX_VALUE_SIZE) {
+                throw std::runtime_error("corrupt WAL: value length too large");
+            }
         }
 
         std::string key(klen, '\0');
@@ -87,10 +96,6 @@ std::vector<LogEntry> WAL::recover() {
 
         std::vector<uint8_t> value;
         if (op == WalOp::PUT) {
-            constexpr uint32_t MAX_VALUE_SIZE = 100 * 1024 * 1024;
-            if (vlen > MAX_VALUE_SIZE) {
-                throw std::runtime_error("corrupt WAL: value too large");
-            }
             value.resize(vlen);
             if (!in.read(reinterpret_cast<char*>(value.data()), vlen)) break;
         }

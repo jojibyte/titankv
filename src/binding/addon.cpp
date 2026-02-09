@@ -75,8 +75,12 @@ TitanKV::TitanKV(const Napi::CallbackInfo& info) : Napi::ObjectWrap<TitanKV>(inf
         }
     }
 
-    engine_ = std::make_unique<titan::TitanEngine>(path);
-    engine_->setCompressionLevel(compression_level);
+    try {
+        engine_ = std::make_unique<titan::TitanEngine>(path);
+        engine_->setCompressionLevel(compression_level);
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+    }
 }
 
 Napi::Value TitanKV::Put(const Napi::CallbackInfo& info) {
@@ -91,35 +95,63 @@ Napi::Value TitanKV::Put(const Napi::CallbackInfo& info) {
     if (info.Length() > 2 && info[2].IsNumber()) {
         ttl = info[2].As<Napi::Number>().Int64Value();
     }
-    engine_->put(key, value, ttl);
+    try {
+        engine_->put(key, value, ttl);
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+    }
     return env.Undefined();
 }
 
 Napi::Value TitanKV::Get(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     if (info.Length() < 1) return env.Null();
-    auto result = engine_->get(info[0].As<Napi::String>().Utf8Value());
-    return result ? Napi::String::New(env, *result) : env.Null();
+    try {
+        auto result = engine_->get(info[0].As<Napi::String>().Utf8Value());
+        return result ? Napi::String::New(env, *result) : env.Null();
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
+    }
 }
 
 Napi::Value TitanKV::Del(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     if (info.Length() < 1) return Napi::Boolean::New(env, false);
-    return Napi::Boolean::New(env, engine_->del(info[0].As<Napi::String>().Utf8Value()));
+    try {
+        return Napi::Boolean::New(env, engine_->del(info[0].As<Napi::String>().Utf8Value()));
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return Napi::Boolean::New(env, false);
+    }
 }
 
 Napi::Value TitanKV::Has(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     if (info.Length() < 1) return Napi::Boolean::New(env, false);
-    return Napi::Boolean::New(env, engine_->has(info[0].As<Napi::String>().Utf8Value()));
+    try {
+        return Napi::Boolean::New(env, engine_->has(info[0].As<Napi::String>().Utf8Value()));
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return Napi::Boolean::New(env, false);
+    }
 }
 
 Napi::Value TitanKV::Size(const Napi::CallbackInfo& info) {
-    return Napi::Number::New(info.Env(), static_cast<double>(engine_->size()));
+    try {
+        return Napi::Number::New(info.Env(), static_cast<double>(engine_->size()));
+    } catch (const std::exception& e) {
+        Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
+        return info.Env().Null();
+    }
 }
 
 Napi::Value TitanKV::Clear(const Napi::CallbackInfo& info) {
-    engine_->clear();
+    try {
+        engine_->clear();
+    } catch (const std::exception& e) {
+        Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
+    }
     return info.Env().Undefined();
 }
 
@@ -127,14 +159,24 @@ Napi::Value TitanKV::Incr(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     int64_t delta = 1;
     if (info.Length() > 1 && info[1].IsNumber()) delta = info[1].As<Napi::Number>().Int64Value();
-    return Napi::Number::New(env, static_cast<double>(engine_->incr(info[0].As<Napi::String>().Utf8Value(), delta)));
+    try {
+        return Napi::Number::New(env, static_cast<double>(engine_->incr(info[0].As<Napi::String>().Utf8Value(), delta)));
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
+    }
 }
 
 Napi::Value TitanKV::Decr(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     int64_t delta = 1;
     if (info.Length() > 1 && info[1].IsNumber()) delta = info[1].As<Napi::Number>().Int64Value();
-    return Napi::Number::New(env, static_cast<double>(engine_->decr(info[0].As<Napi::String>().Utf8Value(), delta)));
+    try {
+        return Napi::Number::New(env, static_cast<double>(engine_->decr(info[0].As<Napi::String>().Utf8Value(), delta)));
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
+    }
 }
 
 Napi::Value TitanKV::Keys(const Napi::CallbackInfo& info) {
@@ -142,12 +184,17 @@ Napi::Value TitanKV::Keys(const Napi::CallbackInfo& info) {
     size_t limit = 1000;
     if (info.Length() > 0 && info[0].IsNumber()) limit = info[0].As<Napi::Number>().Int64Value();
     
-    auto keys = engine_->keys(limit);
-    Napi::Array arr = Napi::Array::New(env, keys.size());
-    for (size_t i = 0; i < keys.size(); i++) {
-        arr.Set(i, Napi::String::New(env, keys[i]));
+    try {
+        auto keys = engine_->keys(limit);
+        Napi::Array arr = Napi::Array::New(env, keys.size());
+        for (size_t i = 0; i < keys.size(); i++) {
+            arr.Set(i, Napi::String::New(env, keys[i]));
+        }
+        return arr;
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
     }
-    return arr;
 }
 
 Napi::Value TitanKV::Scan(const Napi::CallbackInfo& info) {
@@ -157,15 +204,20 @@ Napi::Value TitanKV::Scan(const Napi::CallbackInfo& info) {
     size_t limit = 1000;
     if (info.Length() > 1 && info[1].IsNumber()) limit = info[1].As<Napi::Number>().Int64Value();
 
-    auto pairs = engine_->scan(prefix, limit);
-    Napi::Array arr = Napi::Array::New(env, pairs.size());
-    for (size_t i = 0; i < pairs.size(); i++) {
-        Napi::Array pair = Napi::Array::New(env, 2);
-        pair.Set((uint32_t)0, Napi::String::New(env, pairs[i].first));
-        pair.Set((uint32_t)1, Napi::String::New(env, pairs[i].second));
-        arr.Set(i, pair);
+    try {
+        auto pairs = engine_->scan(prefix, limit);
+        Napi::Array arr = Napi::Array::New(env, pairs.size());
+        for (size_t i = 0; i < pairs.size(); i++) {
+            Napi::Array pair = Napi::Array::New(env, 2);
+            pair.Set((uint32_t)0, Napi::String::New(env, pairs[i].first));
+            pair.Set((uint32_t)1, Napi::String::New(env, pairs[i].second));
+            arr.Set(i, pair);
+        }
+        return arr;
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
     }
-    return arr;
 }
 
 Napi::Value TitanKV::Range(const Napi::CallbackInfo& info) {
@@ -176,20 +228,30 @@ Napi::Value TitanKV::Range(const Napi::CallbackInfo& info) {
     size_t limit = 1000;
     if (info.Length() > 2 && info[2].IsNumber()) limit = info[2].As<Napi::Number>().Int64Value();
 
-    auto pairs = engine_->range(start, end, limit);
-    Napi::Array arr = Napi::Array::New(env, pairs.size());
-    for (size_t i = 0; i < pairs.size(); i++) {
-        Napi::Array pair = Napi::Array::New(env, 2);
-        pair.Set((uint32_t)0, Napi::String::New(env, pairs[i].first));
-        pair.Set((uint32_t)1, Napi::String::New(env, pairs[i].second));
-        arr.Set(i, pair);
+    try {
+        auto pairs = engine_->range(start, end, limit);
+        Napi::Array arr = Napi::Array::New(env, pairs.size());
+        for (size_t i = 0; i < pairs.size(); i++) {
+            Napi::Array pair = Napi::Array::New(env, 2);
+            pair.Set((uint32_t)0, Napi::String::New(env, pairs[i].first));
+            pair.Set((uint32_t)1, Napi::String::New(env, pairs[i].second));
+            arr.Set(i, pair);
+        }
+        return arr;
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
     }
-    return arr;
 }
 
 Napi::Value TitanKV::CountPrefix(const Napi::CallbackInfo& info) {
     if (info.Length() < 1) return Napi::Number::New(info.Env(), 0);
-    return Napi::Number::New(info.Env(), static_cast<double>(engine_->countPrefix(info[0].As<Napi::String>().Utf8Value())));
+    try {
+        return Napi::Number::New(info.Env(), static_cast<double>(engine_->countPrefix(info[0].As<Napi::String>().Utf8Value())));
+    } catch (const std::exception& e) {
+        Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
+        return info.Env().Null();
+    }
 }
 
 Napi::Value TitanKV::PutBatch(const Napi::CallbackInfo& info) {
@@ -210,7 +272,11 @@ Napi::Value TitanKV::PutBatch(const Napi::CallbackInfo& info) {
             }
         }
     }
-    engine_->putBatch(pairs);
+    try {
+        engine_->putBatch(pairs);
+    } catch (const std::exception& e) {
+        Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
+    }
     return info.Env().Undefined();
 }
 
@@ -225,36 +291,54 @@ Napi::Value TitanKV::GetBatch(const Napi::CallbackInfo& info) {
         keys.push_back(arr.Get(i).As<Napi::String>().Utf8Value());
     }
 
-    auto results = engine_->getBatch(keys);
-    Napi::Array out = Napi::Array::New(env, results.size());
-    for (size_t i = 0; i < results.size(); i++) {
-        out.Set(i, results[i] ? Napi::String::New(env, *results[i]) : env.Null());
+    try {
+        auto results = engine_->getBatch(keys);
+        Napi::Array out = Napi::Array::New(env, results.size());
+        for (size_t i = 0; i < results.size(); i++) {
+            out.Set(i, results[i] ? Napi::String::New(env, *results[i]) : env.Null());
+        }
+        return out;
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
     }
-    return out;
 }
 
 Napi::Value TitanKV::Flush(const Napi::CallbackInfo& info) {
-    engine_->flush();
+    try {
+        engine_->flush();
+    } catch (const std::exception& e) {
+        Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
+    }
     return info.Env().Undefined();
 }
 
 Napi::Value TitanKV::Compact(const Napi::CallbackInfo& info) {
-    engine_->compact();
+    try {
+        engine_->compact();
+    } catch (const std::exception& e) {
+        Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
+    }
     return info.Env().Undefined();
 }
 
 Napi::Value TitanKV::GetStats(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    auto stats = engine_->getStats();
-    Napi::Object obj = Napi::Object::New(env);
-    obj.Set("keyCount", Napi::Number::New(env, (double)stats.key_count));
-    obj.Set("rawBytes", Napi::Number::New(env, (double)stats.raw_bytes));
-    obj.Set("compressedBytes", Napi::Number::New(env, (double)stats.compressed_bytes));
-    
-    double ratio = stats.raw_bytes > 0 ? (double)stats.compressed_bytes / stats.raw_bytes : 0.0;
-    obj.Set("compressionRatio", Napi::Number::New(env, ratio));
-    
-    return obj;
+    try {
+        auto stats = engine_->getStats();
+        Napi::Object obj = Napi::Object::New(env);
+        obj.Set("keyCount", Napi::Number::New(env, (double)stats.key_count));
+        obj.Set("rawBytes", Napi::Number::New(env, (double)stats.raw_bytes));
+        obj.Set("compressedBytes", Napi::Number::New(env, (double)stats.compressed_bytes));
+
+        double ratio = stats.raw_bytes > 0 ? (double)stats.compressed_bytes / stats.raw_bytes : 0.0;
+        obj.Set("compressionRatio", Napi::Number::New(env, ratio));
+
+        return obj;
+    } catch (const std::exception& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return env.Null();
+    }
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {

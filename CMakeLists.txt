@@ -64,3 +64,4 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_ADDON_API_DIR})
 
 # napi version
 add_definitions(-DNAPI_VERSION=8)
+add_definitions(-DNAPI_CPP_EXCEPTIONS)

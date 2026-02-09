@@ -234,7 +234,9 @@ async function runTests() {
     test('hexists true', db.hexists('profile', 'name') === true);
     test('hexists false', db.hexists('profile', 'missing') === false);
     test('hdel', db.hdel('profile', 'city') === 1);
-    test('hlen after del', db.hlen('profile') === 2);
+    test('hdel non-existent field', db.hdel('profile', 'non-existent') === 0);
+    test('hdel multiple including non-existent', db.hdel('profile', 'name', 'missing') === 1);
+    test('hlen after del', db.hlen('profile') === 1);
     test('hincrby', db.hincrby('profile', 'age', 1) === 26);
 
     // === Sorted Sets ===

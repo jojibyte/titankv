@@ -47,12 +47,6 @@ void WAL::logPut(const std::string& key, const std::string& value) {
     file_.flush();
 }
 
-void WAL::logPutCompressed(const std::string& key, const std::vector<uint8_t>& compressed_value) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    writeEntry(WalOp::PUT, key, compressed_value);
-    file_.flush();
-}
-
 void WAL::logDel(const std::string& key) {
     std::lock_guard<std::mutex> lock(mutex_);
     writeEntry(WalOp::DEL, key, {});

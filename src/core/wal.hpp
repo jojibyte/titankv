@@ -32,7 +32,6 @@ public:
     WAL& operator=(const WAL&) = delete;
 
     void logPut(const std::string& key, const std::string& value);
-    void logPutCompressed(const std::string& key, const std::vector<uint8_t>& compressed_value);
     void logDel(const std::string& key);
 
     std::vector<LogEntry> recover();

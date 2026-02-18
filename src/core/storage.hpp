@@ -26,6 +26,7 @@ public:
     void putPrecompressed(const std::string& key, std::vector<uint8_t>&& compressed_value, int64_t ttl_ms = 0);
 
     std::optional<std::string> get(const std::string& key);
+    std::vector<std::optional<std::string>> getBatch(const std::vector<std::string>& keys);
     bool del(const std::string& key);
     bool has(const std::string& key);
     void clear();

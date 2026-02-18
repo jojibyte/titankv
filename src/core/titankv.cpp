@@ -103,12 +103,7 @@ void TitanEngine::putBatch(const std::vector<KVPair>& pairs) {
 }
 
 std::vector<std::optional<std::string>> TitanEngine::getBatch(const std::vector<std::string>& keys) {
-    std::vector<std::optional<std::string>> results;
-    results.reserve(keys.size());
-    for (const auto& k : keys) {
-        results.push_back(get(k));
-    }
-    return results;
+    return storage_->getBatch(keys);
 }
 
 void TitanEngine::flush() {

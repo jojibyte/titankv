@@ -332,6 +332,22 @@ async function runTests() {
     test('recover put', db2.get('persist:1') === 'value1');
     test('recover incr', db2.get('persist:counter') === '1');
 
+    // === Resilience & Corruption ===
+    section('Resilience & Corruption');
+
+    const corruptKey = 'corrupt:list';
+    // Manually inject invalid JSON with list prefix '\x00L:'
+    db._db.put('\x00L:' + corruptKey, '{invalid_json');
+
+    // _getList should catch the JSON.parse error and return []
+    test('llen handles corrupt data', db.llen(corruptKey) === 0);
+    const corruptList = db.lrange(corruptKey, 0, -1);
+    test('lrange handles corrupt data', Array.isArray(corruptList) && corruptList.length === 0);
+
+    // Ensure we can overwrite it
+    db.rpush(corruptKey, 'recovered');
+    test('can recover from corrupt data', db.llen(corruptKey) === 1 && db.lindex(corruptKey, 0) === 'recovered');
+
     // === Summary ===
     console.log(`\n\u2554${'═'.repeat(59)}\u2557`);
     console.log(`\u2551  Results: ${String(passed).padEnd(3)} passed, ${String(failed).padEnd(3)} failed${' '.repeat(34)}\u2551`);

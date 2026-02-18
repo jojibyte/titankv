@@ -49,6 +49,22 @@ std::optional<std::string> Storage::get(const std::string& key) {
     return compressor_->decompress(it->second.compressed_value);
 }
 
+std::vector<std::optional<std::string>> Storage::getBatch(const std::vector<std::string>& keys) {
+    std::shared_lock lock(mutex_);
+    std::vector<std::optional<std::string>> results;
+    results.reserve(keys.size());
+
+    for (const auto& k : keys) {
+        auto it = store_.find(k);
+        if (it == store_.end() || isExpired(it->second)) {
+            results.push_back(std::nullopt);
+        } else {
+            results.push_back(compressor_->decompress(it->second.compressed_value));
+        }
+    }
+    return results;
+}
+
 bool Storage::del(const std::string& key) {
     std::unique_lock lock(mutex_);
     return store_.erase(key) > 0;

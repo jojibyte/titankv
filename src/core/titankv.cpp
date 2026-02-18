@@ -1,6 +1,7 @@
 #include "titankv.hpp"
 #include "storage.hpp"
 #include "wal.hpp"
+#include "compressor.hpp"
 #include "utils.hpp"
 #include <algorithm>
 
@@ -97,9 +98,21 @@ size_t TitanEngine::countPrefix(const std::string& prefix) const {
 }
 
 void TitanEngine::putBatch(const std::vector<KVPair>& pairs) {
+    if (pairs.empty()) return;
+
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> compressed_batch;
+    compressed_batch.reserve(pairs.size());
+    size_t total_raw_size = 0;
+
+    Compressor comp;
+    int level = storage_->getCompressionLevel();
     for (const auto& [k, v] : pairs) {
-        put(k, v);
+        compressed_batch.push_back({k, comp.compress(v, level)});
+        total_raw_size += v.size();
     }
+
+    if (wal_) wal_->logPrecompressedBatch(compressed_batch);
+    storage_->putPrecompressedBatch(std::move(compressed_batch), total_raw_size);
 }
 
 std::vector<std::optional<std::string>> TitanEngine::getBatch(const std::vector<std::string>& keys) {

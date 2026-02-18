@@ -15,6 +15,7 @@ namespace titan {
 
 struct ValueEntry {
     std::vector<uint8_t> compressed_value;
+    size_t raw_size = 0;
     int64_t expires_at = 0;
 };
 

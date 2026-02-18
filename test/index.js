@@ -239,6 +239,16 @@ async function runTests() {
     test('hlen after del', db.hlen('profile') === 1);
     test('hincrby', db.hincrby('profile', 'age', 1) === 26);
 
+    // Resilience to corrupt data
+    const HASH_PREFIX = '\x00H:';
+    db._db.put(HASH_PREFIX + 'corrupt', '{invalid json');
+    test('hgetall corrupt data', Object.keys(db.hgetall('corrupt')).length === 0);
+    test('hget corrupt data', db.hget('corrupt', 'field') === null);
+
+    // Test recovery (overwrite corrupt data)
+    test('hset recovers corrupt data', db.hset('corrupt', 'field', 'value') === 1);
+    test('hget recovered data', db.hget('corrupt', 'field') === 'value');
+
     // === Sorted Sets ===
     section('Sorted Set Operations (Redis-like)');
 

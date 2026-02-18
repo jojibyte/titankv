@@ -39,6 +39,16 @@ void Storage::putPrecompressed(const std::string& key, std::vector<uint8_t>&& co
     store_[key] = {std::move(compressed_value), expires};
 }
 
+void Storage::putPrecompressedBatch(std::vector<std::pair<std::string, std::vector<uint8_t>>>&& batch, size_t total_raw_size) {
+    std::unique_lock lock(mutex_);
+    raw_bytes_ += total_raw_size;
+    for (auto& [key, compressed] : batch) {
+        TITAN_ASSERT(!key.empty(), "key cannot be empty");
+        compressed_bytes_ += compressed.size();
+        store_[key] = {std::move(compressed), 0};
+    }
+}
+
 std::optional<std::string> Storage::get(const std::string& key) {
     std::shared_lock lock(mutex_);
 

@@ -122,10 +122,8 @@ void TitanEngine::compact() {
     std::vector<LogEntry> entries;
     entries.reserve(snapshot.size());
 
-    Compressor comp;
-    for (const auto& [k, v] : snapshot) {
-        auto compressed = comp.compress(v, 20);
-        entries.push_back({WalOp::PUT, k, std::move(compressed)});
+    for (auto& [k, v] : snapshot) {
+        entries.push_back({WalOp::PUT, std::move(k), std::move(v)});
     }
 
     wal_->compact(entries);

@@ -35,6 +35,7 @@ public:
     std::vector<std::pair<std::string, std::string>> range(const std::string& start, const std::string& end, size_t limit) const;
 
     std::vector<std::pair<std::string, std::string>> snapshot() const;
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> snapshotCompressed() const;
 
     StorageStats getStats() const;
     void setCompressionLevel(int level) { compression_level_ = level; }

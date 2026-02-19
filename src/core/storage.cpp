@@ -122,14 +122,14 @@ std::vector<std::pair<std::string, std::string>> Storage::range(
     return result;
 }
 
-std::vector<std::pair<std::string, std::string>> Storage::snapshot() const {
+std::vector<std::pair<std::string, std::vector<uint8_t>>> Storage::snapshot() const {
     std::shared_lock lock(mutex_);
-    std::vector<std::pair<std::string, std::string>> result;
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> result;
     result.reserve(store_.size());
 
     for (const auto& [k, v] : store_) {
         if (!isExpired(v)) {
-            result.emplace_back(k, compressor_->decompress(v.compressed_value));
+            result.emplace_back(k, v.compressed_value);
         }
     }
     return result;

@@ -332,6 +332,36 @@ async function runTests() {
     test('recover put', db2.get('persist:1') === 'value1');
     test('recover incr', db2.get('persist:counter') === '1');
 
+    // === Resilience (Corrupt Data Handling) ===
+    section('Resilience (Corrupt Data Handling)');
+
+    db.clear();
+    // List resilience
+    db.put('\x00L:badlist', 'not a json array');
+    test('list resilience (invalid json)', db.llen('badlist') === 0);
+    db.put('\x00L:badlist2', 'true');
+    test('list resilience (non-array json)', db.llen('badlist2') === 0);
+
+    // Set resilience
+    db.put('\x00S:badset', 'not a json array');
+    test('set resilience (invalid json)', db.scard('badset') === 0);
+    db.put('\x00S:badset2', 'true');
+    test('set resilience (non-array json)', db.scard('badset2') === 0);
+
+    // Hash resilience
+    db.put('\x00H:badhash', 'not a json object');
+    test('hash resilience (invalid json)', db.hlen('badhash') === 0);
+    db.put('\x00H:badhash2', 'true');
+    test('hash resilience (non-object json)', db.hlen('badhash2') === 0);
+    db.put('\x00H:badhash3', 'null');
+    test('hash resilience (null json)', db.hlen('badhash3') === 0);
+
+    // Zset resilience
+    db.put('\x00Z:badzset', 'not a json array');
+    test('zset resilience (invalid json)', db.zcard('badzset') === 0);
+    db.put('\x00Z:badzset2', 'true');
+    test('zset resilience (non-array json)', db.zcard('badzset2') === 0);
+
     // === Summary ===
     console.log(`\n\u2554${'═'.repeat(59)}\u2557`);
     console.log(`\u2551  Results: ${String(passed).padEnd(3)} passed, ${String(failed).padEnd(3)} failed${' '.repeat(34)}\u2551`);

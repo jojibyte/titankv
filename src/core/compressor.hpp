@@ -20,6 +20,7 @@ public:
 
     std::vector<uint8_t> compress(const std::string& data, int level = 15);
     std::string decompress(const std::vector<uint8_t>& compressed);
+    static size_t getDecompressedSize(const std::vector<uint8_t>& compressed);
 
 private:
     ZSTD_CCtx* cctx_;

@@ -24,19 +24,39 @@ void Storage::put(const std::string& key, const std::string& value, int64_t ttl_
     TITAN_ASSERT(!key.empty(), "key cannot be empty");
 
     auto compressed = compressor_->compress(value, compression_level_);
+    size_t new_raw_size = value.size();
+    size_t new_compressed_size = compressed.size();
 
-    raw_bytes_ += value.size();
-    compressed_bytes_ += compressed.size();
+    auto it = store_.find(key);
+    if (it != store_.end()) {
+        raw_bytes_ -= it->second.raw_size;
+        compressed_bytes_ -= it->second.compressed_value.size();
+    }
+
+    raw_bytes_ += new_raw_size;
+    compressed_bytes_ += new_compressed_size;
 
     int64_t expires = ttl_ms > 0 ? now() + ttl_ms : 0;
-    store_[key] = {std::move(compressed), expires};
+    store_[key] = {std::move(compressed), new_raw_size, expires};
 }
 
 void Storage::putPrecompressed(const std::string& key, std::vector<uint8_t>&& compressed_value, int64_t ttl_ms) {
     std::unique_lock lock(mutex_);
-    compressed_bytes_ += compressed_value.size();
+
+    size_t new_raw_size = Compressor::getDecompressedSize(compressed_value);
+    size_t new_compressed_size = compressed_value.size();
+
+    auto it = store_.find(key);
+    if (it != store_.end()) {
+        raw_bytes_ -= it->second.raw_size;
+        compressed_bytes_ -= it->second.compressed_value.size();
+    }
+
+    raw_bytes_ += new_raw_size;
+    compressed_bytes_ += new_compressed_size;
+
     int64_t expires = ttl_ms > 0 ? now() + ttl_ms : 0;
-    store_[key] = {std::move(compressed_value), expires};
+    store_[key] = {std::move(compressed_value), new_raw_size, expires};
 }
 
 std::optional<std::string> Storage::get(const std::string& key) {
@@ -51,7 +71,13 @@ std::optional<std::string> Storage::get(const std::string& key) {
 
 bool Storage::del(const std::string& key) {
     std::unique_lock lock(mutex_);
-    return store_.erase(key) > 0;
+    auto it = store_.find(key);
+    if (it == store_.end()) return false;
+
+    raw_bytes_ -= it->second.raw_size;
+    compressed_bytes_ -= it->second.compressed_value.size();
+    store_.erase(it);
+    return true;
 }
 
 bool Storage::has(const std::string& key) {

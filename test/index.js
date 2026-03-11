@@ -319,6 +319,19 @@ async function runTests() {
     test('stats.hitRate', s.hitRate >= 0 && s.hitRate <= 1);
     console.log(`  \u2192 ops: ${s.totalOps}, hits: ${s.hits}, misses: ${s.misses}, hitRate: ${(s.hitRate * 100).toFixed(1)}%`);
 
+    // Test for stats drift
+    const driftKey = 'drift:check';
+    const valSize = 100;
+    db.put(driftKey, 'A'.repeat(valSize));
+    const s1 = db.stats();
+    db.put(driftKey, 'A'.repeat(valSize)); // Overwrite with same size
+    const s2 = db.stats();
+    test('stats.rawBytes stable on overwrite', s2.rawBytes === s1.rawBytes);
+
+    db.del(driftKey);
+    const s3 = db.stats();
+    test('stats.rawBytes reduces on delete', s3.rawBytes < s2.rawBytes);
+
     // === Persistence ===
     section('Persistence & Recovery');
 

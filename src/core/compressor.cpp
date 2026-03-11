@@ -54,4 +54,14 @@ std::string Compressor::decompress(const std::vector<uint8_t>& compressed) {
     return output;
 }
 
+size_t Compressor::getDecompressedSize(const std::vector<uint8_t>& compressed) {
+    if (compressed.empty()) return 0;
+
+    unsigned long long content_size = ZSTD_getFrameContentSize(compressed.data(), compressed.size());
+    TITAN_ASSERT(content_size != ZSTD_CONTENTSIZE_UNKNOWN, "unknown content size");
+    TITAN_ASSERT(content_size != ZSTD_CONTENTSIZE_ERROR, "invalid compressed data");
+
+    return static_cast<size_t>(content_size);
+}
+
 } // namespace titan

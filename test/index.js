@@ -332,6 +332,31 @@ async function runTests() {
     test('recover put', db2.get('persist:1') === 'value1');
     test('recover incr', db2.get('persist:counter') === '1');
 
+    // === Native Argument Validation ===
+    section('Native Argument Validation');
+
+    // Access the internal native object to bypass JS wrapper's default arguments
+    const nativeDb = db._db;
+    let errorThrown = false;
+    try {
+        nativeDb.put();
+    } catch (e) {
+        if (e instanceof TypeError && e.message === 'Expected key and value') {
+            errorThrown = true;
+        }
+    }
+    test('put() throws TypeError: Expected key and value', errorThrown);
+
+    errorThrown = false;
+    try {
+        nativeDb.put('key');
+    } catch (e) {
+        if (e instanceof TypeError && e.message === 'Expected key and value') {
+            errorThrown = true;
+        }
+    }
+    test('put("key") throws TypeError: Expected key and value', errorThrown);
+
     // === Summary ===
     console.log(`\n\u2554${'═'.repeat(59)}\u2557`);
     console.log(`\u2551  Results: ${String(passed).padEnd(3)} passed, ${String(failed).padEnd(3)} failed${' '.repeat(34)}\u2551`);

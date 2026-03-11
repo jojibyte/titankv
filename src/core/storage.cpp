@@ -91,6 +91,19 @@ std::vector<std::string> Storage::keys(size_t limit) const {
     return result;
 }
 
+std::vector<std::pair<std::string, std::vector<uint8_t>>> Storage::snapshotCompressed() const {
+    std::shared_lock lock(mutex_);
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> result;
+    result.reserve(store_.size());
+
+    for (const auto& [k, v] : store_) {
+        if (!isExpired(v)) {
+            result.emplace_back(k, v.compressed_value);
+        }
+    }
+    return result;
+}
+
 std::vector<std::pair<std::string, std::string>> Storage::scan(const std::string& prefix, size_t limit) const {
     std::shared_lock lock(mutex_);
     std::vector<std::pair<std::string, std::string>> result;

@@ -92,8 +92,7 @@ std::vector<TitanEngine::KVPair> TitanEngine::range(
 }
 
 size_t TitanEngine::countPrefix(const std::string& prefix) const {
-    constexpr size_t COUNT_LIMIT = 100000;
-    return storage_->scan(prefix, COUNT_LIMIT).size();
+    return storage_->countPrefix(prefix);
 }
 
 void TitanEngine::putBatch(const std::vector<KVPair>& pairs) {

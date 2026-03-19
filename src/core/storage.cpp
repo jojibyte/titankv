@@ -104,6 +104,18 @@ std::vector<std::pair<std::string, std::string>> Storage::scan(const std::string
     return result;
 }
 
+size_t Storage::countPrefix(const std::string& prefix) const {
+    std::shared_lock lock(mutex_);
+    size_t count = 0;
+
+    for (const auto& [k, v] : store_) {
+        if (!isExpired(v) && k.starts_with(prefix)) {
+            count++;
+        }
+    }
+    return count;
+}
+
 std::vector<std::pair<std::string, std::string>> Storage::range(
     const std::string& start, const std::string& end, size_t limit) const {
     std::shared_lock lock(mutex_);

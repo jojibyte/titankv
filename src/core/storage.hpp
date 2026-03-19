@@ -32,6 +32,7 @@ public:
 
     std::vector<std::string> keys(size_t limit) const;
     std::vector<std::pair<std::string, std::string>> scan(const std::string& prefix, size_t limit) const;
+    size_t countPrefix(const std::string& prefix) const;
     std::vector<std::pair<std::string, std::string>> range(const std::string& start, const std::string& end, size_t limit) const;
 
     std::vector<std::pair<std::string, std::string>> snapshot() const;

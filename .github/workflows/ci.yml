@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     strategy:
@@ -15,9 +18,6 @@ jobs:
         include:
           - os: ubuntu-latest
             platform: linux
-            arch: x64
-          - os: macos-13
-            platform: darwin
             arch: x64
           - os: macos-latest
             platform: darwin
@@ -108,7 +108,6 @@ jobs:
           find prebuilds/ -type f
           echo "=== Checking required platforms ==="
           test -f prebuilds/linux-x64/node.napi.node || (echo "MISSING: linux-x64" && exit 1)
-          test -f prebuilds/darwin-x64/node.napi.node || (echo "MISSING: darwin-x64" && exit 1)
           test -f prebuilds/darwin-arm64/node.napi.node || (echo "MISSING: darwin-arm64" && exit 1)
           test -f prebuilds/win32-x64/node.napi.node || (echo "MISSING: win32-x64" && exit 1)
           echo "All prebuilds present!"

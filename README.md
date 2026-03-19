@@ -85,7 +85,7 @@ db.sadd('tags', 'node', 'fast', 'kv');   // 3 (multi-member)
 db.sismember('tags', 'node');            // true
 db.smembers('tags');                     // ['node', 'fast', 'kv']
 db.scard('tags');                        // 3
-db.srem('tags', 'kv');                   // true
+db.srem('tags', 'kv');                   // 1 (removed count)
 ```
 
 ## Hashes
@@ -225,6 +225,13 @@ db.compact();               // rewrite WAL (remove dead entries)
 // Recover on restart
 const db2 = new TitanKV('./mydb', { sync: 'sync' });
 db2.get('key');             // 'value'
+```
+
+## Lifecycle
+
+```js
+// Explicit cleanup — flushes WAL, closes file handles
+db.close();
 ```
 
 ## Statistics

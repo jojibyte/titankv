@@ -1,6 +1,6 @@
 {
   "name": "titankv",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "ultra-fast embedded key-value engine for node.js. zstd compression, redis-like api, wal persistence. no server needed.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

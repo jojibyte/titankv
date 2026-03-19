@@ -59,34 +59,54 @@ void Storage::putPrecompressed(const std::string& key, std::vector<uint8_t>&& co
     store_[key] = {std::move(compressed_value), new_raw_size, expires};
 }
 
-void Storage::putPrecompressedBatch(std::vector<std::pair<std::string, std::vector<uint8_t>>>&& batch, size_t total_raw_size) {
+void Storage::putPrecompressedBatch(std::vector<std::pair<std::string, std::vector<uint8_t>>>&& batch, size_t /*total_raw_size*/) {
     std::unique_lock lock(mutex_);
-    raw_bytes_ += total_raw_size;
     for (auto& [key, compressed] : batch) {
         TITAN_ASSERT(!key.empty(), "key cannot be empty");
-        compressed_bytes_ += compressed.size();
-        store_[key] = {std::move(compressed), 0};
+
+        size_t entry_raw = Compressor::getDecompressedSize(compressed);
+        size_t entry_comp = compressed.size();
+
+        auto it = store_.find(key);
+        if (it != store_.end()) {
+            raw_bytes_ -= it->second.raw_size;
+            compressed_bytes_ -= it->second.compressed_value.size();
+        }
+
+        raw_bytes_ += entry_raw;
+        compressed_bytes_ += entry_comp;
+        store_[key] = {std::move(compressed), entry_raw};
     }
 }
 
 std::optional<std::string> Storage::get(const std::string& key) {
-    std::shared_lock lock(mutex_);
+    std::unique_lock lock(mutex_);
 
     auto it = store_.find(key);
     if (it == store_.end()) return std::nullopt;
-    if (isExpired(it->second)) return std::nullopt;
+    if (isExpired(it->second)) {
+        raw_bytes_ -= it->second.raw_size;
+        compressed_bytes_ -= it->second.compressed_value.size();
+        store_.erase(it);
+        return std::nullopt;
+    }
 
     return compressor_->decompress(it->second.compressed_value);
 }
 
 std::vector<std::optional<std::string>> Storage::getBatch(const std::vector<std::string>& keys) {
-    std::shared_lock lock(mutex_);
+    std::unique_lock lock(mutex_);
     std::vector<std::optional<std::string>> results;
     results.reserve(keys.size());
 
     for (const auto& k : keys) {
         auto it = store_.find(k);
-        if (it == store_.end() || isExpired(it->second)) {
+        if (it == store_.end()) {
+            results.push_back(std::nullopt);
+        } else if (isExpired(it->second)) {
+            raw_bytes_ -= it->second.raw_size;
+            compressed_bytes_ -= it->second.compressed_value.size();
+            store_.erase(it);
             results.push_back(std::nullopt);
         } else {
             results.push_back(compressor_->decompress(it->second.compressed_value));
@@ -107,10 +127,16 @@ bool Storage::del(const std::string& key) {
 }
 
 bool Storage::has(const std::string& key) {
-    std::shared_lock lock(mutex_);
+    std::unique_lock lock(mutex_);
     auto it = store_.find(key);
     if (it == store_.end()) return false;
-    return !isExpired(it->second);
+    if (isExpired(it->second)) {
+        raw_bytes_ -= it->second.raw_size;
+        compressed_bytes_ -= it->second.compressed_value.size();
+        store_.erase(it);
+        return false;
+    }
+    return true;
 }
 
 void Storage::clear() {

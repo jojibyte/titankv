@@ -215,7 +215,7 @@ async function runTests() {
     const members = db.smembers('myset');
     test('smembers', members.length === 3);
 
-    test('srem', db.srem('myset', 'a') === true);
+    test('srem', db.srem('myset', 'a') === 1);
     test('scard after rem', db.scard('myset') === 2);
 
     // === Hashes ===
@@ -367,6 +367,75 @@ async function runTests() {
     // Ensure we can overwrite it
     db.rpush(corruptKey, 'recovered');
     test('can recover from corrupt data', db.llen(corruptKey) === 1 && db.lindex(corruptKey, 0) === 'recovered');
+
+    // === v2.1.0 Bug Fixes ===
+    section('v2.1.0 – hitRate Fix');
+
+    const hrDb = new TitanKV();
+    hrDb.put('hr:1', 'a');
+    hrDb.put('hr:2', 'b');
+    hrDb.put('hr:3', 'c');
+    hrDb.get('hr:1');        // hit
+    hrDb.get('hr:2');        // hit
+    hrDb.get('hr:miss1');    // miss
+    hrDb.get('hr:miss2');    // miss
+    const hrStats = hrDb.stats();
+    test('hitRate = hits/(hits+misses)', Math.abs(hrStats.hitRate - 0.5) < 0.01);
+    test('hitRate not based on totalOps', hrStats.totalOps > (hrStats.hits + hrStats.misses));
+    console.log(`  \u2192 hitRate: ${(hrStats.hitRate * 100).toFixed(1)}% (hits: ${hrStats.hits}, misses: ${hrStats.misses}, ops: ${hrStats.totalOps})`);
+
+    section('v2.1.0 – srem Returns Number');
+
+    const sremDb = new TitanKV();
+    sremDb.sadd('sremtest', 'a', 'b', 'c', 'd');
+    const sremResult = sremDb.srem('sremtest', 'a', 'b', 'missing');
+    test('srem returns number (removed count)', sremResult === 2);
+    test('srem type is number', typeof sremResult === 'number');
+    const sremZero = sremDb.srem('sremtest', 'missing1', 'missing2');
+    test('srem returns 0 for no matches', sremZero === 0);
+
+    section('v2.1.0 – iterate Safety Counter');
+
+    const iterDb = new TitanKV();
+    iterDb.put('safe:1', 'a');
+    iterDb.put('safe:2', 'b');
+    let safeCount = 0;
+    for (const [k, v] of iterDb.iterate('safe:', 1)) { safeCount++; }
+    test('iterate works normally', safeCount === 2);
+
+    section('v2.1.0 – Expired Key Lazy Delete');
+
+    const expDb = new TitanKV();
+    expDb.put('exp:1', 'alive');
+    expDb.put('exp:2', 'short-lived', 50);
+    expDb.put('exp:3', 'also-short', 50);
+    test('before expire: size=3', expDb.size() === 3);
+    await new Promise(r => setTimeout(r, 80));
+    // Trigger lazy delete via get
+    test('expired key returns null', expDb.get('exp:2') === null);
+    test('expired key has=false', expDb.has('exp:3') === false);
+    // After lazy delete, expired keys removed from storage
+    test('after lazy delete: size=1', expDb.size() === 1);
+    test('alive key still works', expDb.get('exp:1') === 'alive');
+
+    section('v2.1.0 – Batch Overwrite Stats');
+
+    const batchDb = new TitanKV();
+    batchDb.putBatch([['bk:1', 'aaa'], ['bk:2', 'bbb']]);
+    const batchS1 = batchDb.stats();
+    batchDb.putBatch([['bk:1', 'xxx'], ['bk:2', 'yyy']]);
+    const batchS2 = batchDb.stats();
+    test('batch overwrite: rawBytes stable', batchS2.rawBytes === batchS1.rawBytes);
+    batchDb.del('bk:1');
+    const batchS3 = batchDb.stats();
+    test('batch delete: rawBytes decreases', batchS3.rawBytes < batchS2.rawBytes);
+
+    section('v2.1.0 – close() Method');
+
+    const closeDb = new TitanKV();
+    closeDb.put('cls:1', 'data');
+    closeDb.subscribe('ch', () => {});
+    test('close does not throw', (() => { try { closeDb.close(); return true; } catch { return false; } })());
 
     // === Summary ===
     console.log(`\n\u2554${'═'.repeat(59)}\u2557`);

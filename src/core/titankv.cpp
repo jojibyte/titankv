@@ -25,7 +25,7 @@ void TitanEngine::recover() {
     auto entries = wal_->recover();
     for (auto& entry : entries) {
         if (entry.op == WalOp::PUT) {
-            storage_->putPrecompressed(entry.key, std::move(entry.value));
+            storage_->putPrecompressed(entry.key, std::move(entry.value), entry.ttl_ms);
         } else if (entry.op == WalOp::DEL) {
             storage_->del(entry.key);
         }
@@ -34,7 +34,7 @@ void TitanEngine::recover() {
 
 void TitanEngine::put(const std::string& key, const std::string& value, int64_t ttl_ms) {
     storage_->put(key, value, ttl_ms);
-    if (wal_) wal_->logPut(key, value);
+    if (wal_) wal_->logPut(key, value, ttl_ms, storage_->getCompressionLevel());
 }
 
 std::optional<std::string> TitanEngine::get(const std::string& key) {
@@ -142,6 +142,14 @@ void TitanEngine::setCompressionLevel(int level) {
 
 StorageStats TitanEngine::getStats() const {
     return storage_->getStats();
+}
+
+void TitanEngine::close() {
+    if (wal_) {
+        wal_->flush();
+        wal_.reset();
+    }
+    storage_.reset();
 }
 
 } // namespace titan

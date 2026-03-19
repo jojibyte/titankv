@@ -27,6 +27,7 @@ private:
     Napi::Value GetBatch(const Napi::CallbackInfo& info);
     Napi::Value Flush(const Napi::CallbackInfo& info);
     Napi::Value Compact(const Napi::CallbackInfo& info);
+    Napi::Value Close(const Napi::CallbackInfo& info);
     Napi::Value GetStats(const Napi::CallbackInfo& info);
 };
 
@@ -48,6 +49,7 @@ Napi::Object TitanKV::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("getBatch", &TitanKV::GetBatch),
         InstanceMethod("flush", &TitanKV::Flush),
         InstanceMethod("compact", &TitanKV::Compact),
+        InstanceMethod("close", &TitanKV::Close),
         InstanceMethod("stats", &TitanKV::GetStats),
     });
 
@@ -316,6 +318,15 @@ Napi::Value TitanKV::Flush(const Napi::CallbackInfo& info) {
 Napi::Value TitanKV::Compact(const Napi::CallbackInfo& info) {
     try {
         engine_->compact();
+    } catch (const std::exception& e) {
+        Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
+    }
+    return info.Env().Undefined();
+}
+
+Napi::Value TitanKV::Close(const Napi::CallbackInfo& info) {
+    try {
+        if (engine_) engine_->close();
     } catch (const std::exception& e) {
         Napi::Error::New(info.Env(), e.what()).ThrowAsJavaScriptException();
     }

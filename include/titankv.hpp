@@ -49,6 +49,7 @@ public:
 
     void flush();
     void compact();
+    void close();
     void setCompressionLevel(int level);
 
     StorageStats getStats() const;

@@ -22,7 +22,7 @@ WAL::~WAL() {
     }
 }
 
-void WAL::writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value) {
+void WAL::writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value, int64_t ttl_ms) {
     uint32_t klen = static_cast<uint32_t>(key.size());
     uint32_t vlen = static_cast<uint32_t>(value.size());
     uint8_t op_byte = static_cast<uint8_t>(op);
@@ -37,13 +37,14 @@ void WAL::writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t
     file_.write(key.data(), klen);
     if (op == WalOp::PUT) {
         file_.write(reinterpret_cast<const char*>(value.data()), vlen);
+        file_.write(reinterpret_cast<const char*>(&ttl_ms), 8);
     }
 }
 
-void WAL::logPut(const std::string& key, const std::string& value) {
+void WAL::logPut(const std::string& key, const std::string& value, int64_t ttl_ms, int compression_level) {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto compressed = compressor_->compress(value, 15);
-    writeEntry(WalOp::PUT, key, compressed);
+    auto compressed = compressor_->compress(value, compression_level);
+    writeEntry(WalOp::PUT, key, compressed, ttl_ms);
     file_.flush();
 }
 
@@ -97,12 +98,14 @@ std::vector<LogEntry> WAL::recover() {
         if (!in.read(key.data(), klen)) break;
 
         std::vector<uint8_t> value;
+        int64_t ttl_ms = 0;
         if (op == WalOp::PUT) {
             value.resize(vlen);
             if (!in.read(reinterpret_cast<char*>(value.data()), vlen)) break;
+            if (!in.read(reinterpret_cast<char*>(&ttl_ms), 8)) break;
         }
 
-        entries.push_back({op, std::move(key), std::move(value)});
+        entries.push_back({op, std::move(key), std::move(value), ttl_ms});
     }
     return entries;
 }
@@ -119,12 +122,14 @@ void WAL::compact(const std::vector<LogEntry>& active_entries) {
         uint32_t klen = static_cast<uint32_t>(entry.key.size());
         uint32_t vlen = static_cast<uint32_t>(entry.value.size());
         uint8_t op_byte = static_cast<uint8_t>(WalOp::PUT);
+        int64_t ttl_ms = entry.ttl_ms;
 
         out.write(reinterpret_cast<const char*>(&op_byte), 1);
         out.write(reinterpret_cast<const char*>(&klen), 4);
         out.write(reinterpret_cast<const char*>(&vlen), 4);
         out.write(entry.key.data(), klen);
         out.write(reinterpret_cast<const char*>(entry.value.data()), vlen);
+        out.write(reinterpret_cast<const char*>(&ttl_ms), 8);
     }
     out.flush();
     out.close();

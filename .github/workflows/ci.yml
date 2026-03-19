@@ -16,7 +16,7 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             arch: x64
-          - os: macos-latest
+          - os: macos-13
             platform: darwin
             arch: x64
           - os: macos-latest
@@ -54,8 +54,34 @@ jobs:
           name: prebuild-${{ matrix.platform }}-${{ matrix.arch }}
           path: prebuilds/
 
-  publish:
+  # Test with multiple Node.js versions (using Linux prebuild)
+  test-versions:
     needs: build
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Download prebuild
+        uses: actions/download-artifact@v4
+        with:
+          name: prebuild-linux-x64
+          path: prebuilds/
+
+      - name: Run tests
+        run: npm test
+
+  publish:
+    needs: [build, test-versions]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -76,8 +102,16 @@ jobs:
           path: prebuilds/
           merge-multiple: true
 
-      - name: List prebuilds
-        run: find prebuilds/ -type f || echo "No prebuilds"
+      - name: Verify prebuilds
+        run: |
+          echo "=== Prebuild directory structure ==="
+          find prebuilds/ -type f
+          echo "=== Checking required platforms ==="
+          test -f prebuilds/linux-x64/node.napi.node || (echo "MISSING: linux-x64" && exit 1)
+          test -f prebuilds/darwin-x64/node.napi.node || (echo "MISSING: darwin-x64" && exit 1)
+          test -f prebuilds/darwin-arm64/node.napi.node || (echo "MISSING: darwin-arm64" && exit 1)
+          test -f prebuilds/win32-x64/node.napi.node || (echo "MISSING: win32-x64" && exit 1)
+          echo "All prebuilds present!"
 
       - name: Install dependencies
         run: npm install --ignore-scripts

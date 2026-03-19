@@ -21,6 +21,7 @@ struct LogEntry {
     WalOp op;
     std::string key;
     std::vector<uint8_t> value;
+    int64_t ttl_ms = 0;
 };
 
 class WAL {
@@ -31,7 +32,7 @@ public:
     WAL(const WAL&) = delete;
     WAL& operator=(const WAL&) = delete;
 
-    void logPut(const std::string& key, const std::string& value);
+    void logPut(const std::string& key, const std::string& value, int64_t ttl_ms = 0, int compression_level = 3);
     void logPrecompressedBatch(const std::vector<std::pair<std::string, std::vector<uint8_t>>>& batch);
     void logDel(const std::string& key);
 
@@ -45,7 +46,7 @@ private:
     std::mutex mutex_;
     std::unique_ptr<Compressor> compressor_;
 
-    void writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value);
+    void writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value, int64_t ttl_ms = 0);
 };
 
 } // namespace titan

@@ -125,7 +125,7 @@ export class TitanKV extends EventEmitter {
 
     // Set (Redis-like)
     sadd(key: string, ...members: string[]): number;
-    srem(key: string, ...members: string[]): boolean;
+    srem(key: string, ...members: string[]): number;
     sismember(key: string, member: string): boolean;
     smembers(key: string): string[];
     scard(key: string): number;
@@ -160,4 +160,7 @@ export class TitanKV extends EventEmitter {
 
     // Stats
     stats(): TitanStats;
+
+    // Lifecycle
+    close(): void;
 }

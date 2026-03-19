@@ -25,7 +25,7 @@ my-npm-db/
 # Logs
 *.log
 npm-debug.log*
-benchmark.js
+/benchmark.js
 .t
 bench_db
 bench_data/titan.t

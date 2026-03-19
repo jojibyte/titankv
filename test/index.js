@@ -239,6 +239,13 @@ async function runTests() {
     test('hlen after del', db.hlen('profile') === 1);
     test('hincrby', db.hincrby('profile', 'age', 1) === 26);
 
+    // Resilience test for Hash
+    // Inject corrupt JSON directly into DB using internal prefix
+    db._db.put('\x00H:corrupt', '{badjson');
+    const corruptRes = db.hgetall('corrupt');
+    test('hgetall handles corrupt data', corruptRes !== null && Object.keys(corruptRes).length === 0);
+    test('hget handles corrupt data', db.hget('corrupt', 'field') === null);
+
     // === Sorted Sets ===
     section('Sorted Set Operations (Redis-like)');
 

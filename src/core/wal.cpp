@@ -47,6 +47,14 @@ void WAL::logPut(const std::string& key, const std::string& value) {
     file_.flush();
 }
 
+void WAL::logPrecompressedBatch(const std::vector<std::pair<std::string, std::vector<uint8_t>>>& batch) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& [key, compressed] : batch) {
+        writeEntry(WalOp::PUT, key, compressed);
+    }
+    file_.flush();
+}
+
 void WAL::logDel(const std::string& key) {
     std::lock_guard<std::mutex> lock(mutex_);
     writeEntry(WalOp::DEL, key, {});

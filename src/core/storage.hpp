@@ -25,6 +25,7 @@ public:
 
     void put(const std::string& key, const std::string& value, int64_t ttl_ms = 0);
     void putPrecompressed(const std::string& key, std::vector<uint8_t>&& compressed_value, int64_t ttl_ms = 0);
+    void putPrecompressedBatch(std::vector<std::pair<std::string, std::vector<uint8_t>>>&& batch, size_t total_raw_size);
 
     std::optional<std::string> get(const std::string& key);
     std::vector<std::optional<std::string>> getBatch(const std::vector<std::string>& keys);
@@ -41,6 +42,7 @@ public:
 
     StorageStats getStats() const;
     void setCompressionLevel(int level) { compression_level_ = level; }
+    int getCompressionLevel() const { return compression_level_; }
 
 private:
     mutable std::shared_mutex mutex_;

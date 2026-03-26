@@ -213,6 +213,7 @@ function runBenchmarks() {
             pdb.put(`p:${i}`, sampleValue);
         }
         pdb.flush();
+        pdb.close();
         return { ops: PERSIST_N };
     });
 
@@ -220,6 +221,7 @@ function runBenchmarks() {
         const pdb2 = new TitanKV(tmpDir, { sync: 'sync' });
         const val = pdb2.get('p:0');
         if (!val) throw new Error('Recovery failed');
+        pdb2.close();
         return { ops: PERSIST_N };
     });
 

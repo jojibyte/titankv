@@ -8,14 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Express.js Adapter (`titankv-express-session`)**: Added official `express-session` store integration! Can be imported out-of-the-box via `require('titankv/lib/express-session')(session)`. Enables developers to switch their external Redis session caches to TitanKV with zero network latency.
+- **Phase 1: Robustness & Fuzzing (Cluster File Locking & Memory Stability)**: Implemented `titan.lock` mechanism. When deployed via PM2 or cluster mode, secondary processes attempting to access the same directory will throw a safe, descriptive error instead of corrupting the WAL. Included rigorous Fuzz & Memory Leak testing to guarantee stability over millions of operations.
+- **Phase 2: Ecosystem Adapters**:
+  - **Express.js Adapter (`titankv-express-session`)**: Added official `express-session` store integration! Can be imported out-of-the-box via `require('titankv/lib/express-session')(session)`. Enables developers to switch their external Redis session caches to TitanKV with zero network latency.
+  - **Next.js Cache Adapter (`titankv-nextjs-cache`)**: Added a Next.js App Router compatible Custom Cache Handler (`lib/nextjs-cache`). Seamlessly replace Vercel KV or Redis with TitanKV to cache `fetch` requests and ISR completely in-memory with disk persistence.
 
-## [2.3.0] - 2026-03-26
-
-### Added
-
-- **IPC File Locking**: Added `titan.lock` mechanism. Automatically blocks secondary processes (PM2, Cluster mode) from reading/writing to the same WAL concurrently, preventing database corruption.
-- **Fuzz & Memory Leak Tests**: Integrated rigorous Chaos / Fuzz testing limits and Memory Leak verification bounds into CI/CD workflows, proving robust execution under million+ operations without segment faults.
+### Fixed
+- **Cascade Deletions for Complex Types**: Fixed a memory/storage leak where calling `db.del(key)` on sets, lists, or hashes would only delete the meta-mapping but leave the underlying prefixed keys in the C++ layer.
+- **Benchmark Lock Release**: Fixed issue in `test/benchmark.js` where lack of explicit `close()` calls caused IPC lock failures during testing.
 
 ## [2.2.0] - 2026-03-20
 

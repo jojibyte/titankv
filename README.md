@@ -30,9 +30,49 @@ const { TitanKV } = require('titankv');
 // In-memory (fastest)
 const db = new TitanKV();
 
-// With persistence
+// With persistence (IPC safe - blocks secondary instances in PM2/Cluster)
 const db = new TitanKV('./data', { sync: 'sync' });
 ```
+
+## Ecosystem Adapters (New!)
+
+TitanKV comes with built-in ecosystem adapters to seamlessly replace external Redis instances and achieve zero-network-latency caching in popular frameworks.
+
+### Express.js Session Store
+
+Use TitanKV as your drop-in replacement for Redis in Express applications. It runs directly inside your Node.js process.
+
+```js
+const express = require('express');
+const session = require('express-session');
+const TitanKVSessionStore = require('titankv/lib/express-session')(session);
+
+const app = express();
+
+app.use(session({
+  store: new TitanKVSessionStore({
+    prefix: 'session:', // optional
+    dir: './titan-sessions', // optional persistence
+  }),
+  secret: 'my-secret',
+  resave: false,
+  saveUninitialized: false
+}));
+```
+
+### Next.js App Router Cache Handler
+
+Use TitanKV as a Custom Cache Handler for Next.js to cache `fetch` requests and ISR completely in-memory (or disk) without needing Vercel KV or external Redis.
+
+Edit your `next.config.js`:
+```js
+module.exports = {
+  cacheHandler: require.resolve('titankv/lib/nextjs-cache'),
+  cacheMaxMemorySize: 0, // Disable default memory cache if needed
+};
+```
+
+You can customize the cache handler behavior by providing environment variables (e.g., `TITAN_CACHE_DIR` for persistence).
 
 ## Core Operations
 

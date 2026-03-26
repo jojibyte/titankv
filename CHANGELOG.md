@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-03-26
+
+### Added
+
+- **Express.js Adapter (`titankv-express-session`)**: Added official `express-session` store integration! Can be imported out-of-the-box via `require('titankv/lib/express-session')(session)`. Enables developers to switch their external Redis session caches to TitanKV with zero network latency.
+
 ## [2.3.0] - 2026-03-26
 
 ### Added

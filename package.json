@@ -9,7 +9,7 @@
     "rebuild": "cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     "test": "node test/index.js",
     "benchmark": "node test/benchmark.js",
-    "test:all": "node test/index.js && node test/benchmark.js"
+    "test:all": "node test/index.js && node test/memory_leak.js && node test/express_session_test.js && node test/nextjs_cache_test.js && node test/benchmark.js"
   },
   "keywords": [
     "kv",

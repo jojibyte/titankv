@@ -31,3 +31,7 @@ bench_db
 bench_data/titan.t
 series.json
 bench-data
+.vscode
+ROADMAP.md
+.cursorignore
+titan.t

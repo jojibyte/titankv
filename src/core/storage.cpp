@@ -173,10 +173,11 @@ std::vector<std::pair<std::string, std::string>> Storage::scan(const std::string
     std::shared_lock lock(mutex_);
     std::vector<std::pair<std::string, std::string>> result;
 
-    for (const auto& [k, v] : store_) {
-        if (!isExpired(v) && k.starts_with(prefix)) {
-            result.emplace_back(k, compressor_->decompress(v.compressed_value));
-            if (result.size() >= limit) break;
+    auto it = prefix.empty() ? store_.begin() : store_.lower_bound(prefix);
+    for (; it != store_.end() && result.size() < limit; ++it) {
+        if (!prefix.empty() && it->first.compare(0, prefix.size(), prefix) != 0) break;
+        if (!isExpired(it->second)) {
+            result.emplace_back(it->first, compressor_->decompress(it->second.compressed_value));
         }
     }
     return result;
@@ -186,10 +187,10 @@ size_t Storage::countPrefix(const std::string& prefix) const {
     std::shared_lock lock(mutex_);
     size_t count = 0;
 
-    for (const auto& [k, v] : store_) {
-        if (!isExpired(v) && k.starts_with(prefix)) {
-            count++;
-        }
+    auto it = prefix.empty() ? store_.begin() : store_.lower_bound(prefix);
+    for (; it != store_.end(); ++it) {
+        if (!prefix.empty() && it->first.compare(0, prefix.size(), prefix) != 0) break;
+        if (!isExpired(it->second)) count++;
     }
     return count;
 }
@@ -199,15 +200,10 @@ std::vector<std::pair<std::string, std::string>> Storage::range(
     std::shared_lock lock(mutex_);
     std::vector<std::pair<std::string, std::string>> result;
 
-    for (const auto& [k, v] : store_) {
-        if (!isExpired(v) && k >= start && k <= end) {
-            result.emplace_back(k, compressor_->decompress(v.compressed_value));
+    for (auto it = store_.lower_bound(start); it != store_.end() && it->first <= end && result.size() < limit; ++it) {
+        if (!isExpired(it->second)) {
+            result.emplace_back(it->first, compressor_->decompress(it->second.compressed_value));
         }
-    }
-
-    std::sort(result.begin(), result.end());
-    if (result.size() > limit) {
-        result.resize(limit);
     }
     return result;
 }

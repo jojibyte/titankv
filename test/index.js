@@ -437,6 +437,95 @@ async function runTests() {
     closeDb.subscribe('ch', () => {});
     test('close does not throw', (() => { try { closeDb.close(); return true; } catch { return false; } })());
 
+    // === v2.2.0 New Commands ===
+    section('v2.2.0 – Set Operations (sunion/sinter/sdiff)');
+
+    const setDb = new TitanKV();
+    setDb.sadd('setA', 'a', 'b', 'c', 'd');
+    setDb.sadd('setB', 'c', 'd', 'e', 'f');
+    setDb.sadd('setC', 'd', 'e', 'g');
+
+    const union = setDb.sunion('setA', 'setB');
+    test('sunion has all members', union.length === 6); // a,b,c,d,e,f
+    test('sunion includes a', union.includes('a'));
+    test('sunion includes f', union.includes('f'));
+
+    const inter = setDb.sinter('setA', 'setB');
+    test('sinter correct', inter.length === 2 && inter.includes('c') && inter.includes('d'));
+
+    const inter3 = setDb.sinter('setA', 'setB', 'setC');
+    test('sinter 3 sets', inter3.length === 1 && inter3[0] === 'd');
+
+    const diff = setDb.sdiff('setA', 'setB');
+    test('sdiff correct', diff.length === 2 && diff.includes('a') && diff.includes('b'));
+
+    const diff3 = setDb.sdiff('setA', 'setB', 'setC');
+    test('sdiff 3 sets', diff3.length === 2 && diff3.includes('a') && diff3.includes('b'));
+
+    section('v2.2.0 – rename');
+
+    const renDb = new TitanKV();
+    renDb.put('old:key', 'hello');
+    test('rename returns OK', renDb.rename('old:key', 'new:key') === 'OK');
+    test('old key gone', renDb.get('old:key') === null);
+    test('new key has value', renDb.get('new:key') === 'hello');
+
+    // rename with TTL
+    renDb.put('ttl:old', 'temp', 60000);
+    renDb.rename('ttl:old', 'ttl:new');
+    test('rename preserves value', renDb.get('ttl:new') === 'temp');
+
+    // rename non-existent key throws
+    let renameErr = false;
+    try { renDb.rename('nonexistent', 'x'); } catch { renameErr = true; }
+    test('rename missing key throws', renameErr);
+
+    section('v2.2.0 – type');
+
+    const typeDb = new TitanKV();
+    typeDb.put('str:key', 'value');
+    typeDb.lpush('list:key', 'a');
+    typeDb.sadd('set:key', 'a');
+    typeDb.hset('hash:key', 'f', 'v');
+    typeDb.zadd('zset:key', 1, 'a');
+
+    test('type string', typeDb.type('str:key') === 'string');
+    test('type list', typeDb.type('list:key') === 'list');
+    test('type set', typeDb.type('set:key') === 'set');
+    test('type hash', typeDb.type('hash:key') === 'hash');
+    test('type zset', typeDb.type('zset:key') === 'zset');
+    test('type none', typeDb.type('missing') === 'none');
+
+    section('v2.2.0 – randomkey / exists / dbsize');
+
+    const miscDb = new TitanKV();
+    miscDb.put('rk:1', 'a');
+    miscDb.put('rk:2', 'b');
+    miscDb.put('rk:3', 'c');
+
+    test('exists true', miscDb.exists('rk:1') === true);
+    test('exists false', miscDb.exists('missing') === false);
+    test('dbsize', miscDb.dbsize() === 3);
+
+    const rk = miscDb.randomkey();
+    test('randomkey returns a key', rk !== null && rk.startsWith('rk:'));
+
+    const emptyDb = new TitanKV();
+    test('randomkey empty db', emptyDb.randomkey() === null);
+
+    section('v2.2.0 – Background TTL Cleanup');
+
+    const bgDb = new TitanKV(null, { cleanupIntervalMs: 50 });
+    bgDb.put('bg:1', 'alive');
+    bgDb.put('bg:2', 'short', 30);
+    bgDb.expire('bg:2', 30);
+    test('bg: before cleanup size', bgDb.size() === 2);
+    await new Promise(r => setTimeout(r, 120));
+    // background cleanup should have purged bg:2
+    test('bg: after cleanup size', bgDb.size() <= 1);
+    test('bg: alive key survives', bgDb.get('bg:1') === 'alive');
+    bgDb.close();
+
     // === Summary ===
     console.log(`\n\u2554${'═'.repeat(59)}\u2557`);
     console.log(`\u2551  Results: ${String(passed).padEnd(3)} passed, ${String(failed).padEnd(3)} failed${' '.repeat(34)}\u2551`);

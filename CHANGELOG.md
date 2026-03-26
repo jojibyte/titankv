@@ -4,13 +4,35 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-03-26
+
+### Added
+
+- **IPC File Locking**: Added `titan.lock` mechanism. Automatically blocks secondary processes (PM2, Cluster mode) from reading/writing to the same WAL concurrently, preventing database corruption.
+- **Fuzz & Memory Leak Tests**: Integrated rigorous Chaos / Fuzz testing limits and Memory Leak verification bounds into CI/CD workflows, proving robust execution under million+ operations without segment faults.
+
+## [2.2.0] - 2026-03-20
+
+### Added
+
+- **Set operations**: `sunion(...keys)`, `sinter(...keys)`, `sdiff(key, ...otherKeys)` for union, intersection, and difference.
+- **`rename(oldKey, newKey)`**: Atomically rename a key, preserving TTL. Throws if key doesn't exist.
+- **`type(key)`**: Returns key type — `'string'` | `'list'` | `'set'` | `'hash'` | `'zset'` | `'none'`.
+- **`randomkey()`**: Returns a random key from the database, or `null` if empty.
+- **`exists(key)`**: Redis-compatible alias for `has()`.
+- **`dbsize()`**: Redis-compatible alias for `size()`.
+- **Background TTL cleanup**: New `cleanupIntervalMs` option. When set, a background timer periodically purges expired keys that haven't been accessed.
+- **TypeScript**: All new methods added to type definitions.
+
 ## [2.1.0] - 2026-03-20
 
 ### Breaking Changes
+
 - **WAL format v2**: TTL field now persisted per entry (+8 bytes per PUT record). Old WAL files from v2.0.0 are **incompatible** — run `compact()` before upgrading, or delete the WAL and re-import data.
 - **`srem()` return type**: Now returns `number` (removed count) instead of `boolean`, matching Redis behavior.
 
 ### Fixed
+
 - **Expired keys leaked memory**: `get()`/`has()`/`getBatch()` now lazily delete expired keys from storage instead of leaving them in memory forever.
 - **`putPrecompressedBatch` stats drift**: Each entry now stores correct `raw_size` via `getDecompressedSize()`. Overwrites properly subtract old entry bytes.
 - **`hitRate` calculation**: Changed from `hits/totalOps` to `hits/(hits+misses)` for accurate cache hit rate.
@@ -21,6 +43,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - **Catch blocks**: All `catch {}` blocks now have descriptive comments explaining the tolerated error.
 
 ### Added
+
 - **`close()` method**: Explicit cleanup — flushes WAL, closes file handles, clears subscriptions and TTL map. Available in both JS and C++ layers.
 - **`iterate()` safety counter**: Generator now throws after 1,000,000 rounds to prevent infinite loops (NASA Rule 2).
 - **CI: Node.js version matrix**: Tests now run against Node 18, 20, and 22.
@@ -28,17 +51,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - **TypeScript**: `close()` method added to type definitions. `srem` return type updated to `number`.
 
 ### Changed
+
 - **CI macOS x64**: Changed from `macos-latest` (arm64 runner) to `macos-13` for reliable Intel builds.
 
 ## [2.0.0] - 2026-02-09
 
 ### Breaking Changes
+
 - **Build system**: Switched from `node-gyp` to `cmake-js` for native compilation.
 - **Compression**: All values now compressed with Zstd. WAL format changed (`.wal` → `.t`).
 - **Stats API**: `stats()` now returns `{ totalOps, hits, misses, hitRate, keyCount, rawBytes, compressedBytes, compressionRatio }`.
 - **Removed deps**: `better-sqlite3`, `classic-level`, `ioredis` removed — TitanKV is fully self-contained.
 
 ### Added
+
 - **Zstd compression** — configurable level (1–22), average 10–20x space savings.
 - **Hash operations** — `hset`, `hmset`, `hget`, `hgetall`, `hdel`, `hexists`, `hkeys`, `hvals`, `hlen`, `hincrby`.
 - **Sorted Sets** — `zadd`, `zrem`, `zscore`, `zcard`, `zrank`, `zrange`, `zrevrange`, `zrangebyscore`, `zincrby`, `zcount`.
@@ -55,18 +81,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - **Benchmark suite** — `npm run benchmark` for performance profiling.
 
 ### Changed
+
 - Lists, Sets, Hashes, Sorted Sets implemented in JS layer for maximum flexibility.
 - Dependencies pinned to stable versions (`^x.y.z` instead of `*`).
 
 ## [1.0.1] - 2026-02-05
 
 ### Fixed
+
 - macOS build: removed try-catch for clang compatibility.
 - CI: explicit node architecture for cross-platform prebuilds.
 
 ## [1.0.0] - 2026-02-05
 
 ### Added
+
 - Initial release.
 - Core KV: `put`, `get`, `del`, `has`, `size`, `clear`.
 - Atomic: `incr`, `decr`.

@@ -72,6 +72,11 @@ export class TitanKV extends EventEmitter {
     put(key: string, value: string, ttlMs?: number): void;
     get(key: string): string | null;
     del(key: string): boolean;
+    exists(key: string): boolean;
+    dbsize(): number;
+    rename(oldKey: string, newKey: string): string;
+    type(key: string): 'string' | 'list' | 'set' | 'hash' | 'zset' | 'none';
+    randomkey(): string | null;
     has(key: string): boolean;
     size(): number;
     clear(): void;
@@ -129,6 +134,9 @@ export class TitanKV extends EventEmitter {
     sismember(key: string, member: string): boolean;
     smembers(key: string): string[];
     scard(key: string): number;
+    sunion(...keys: string[]): string[];
+    sinter(...keys: string[]): string[];
+    sdiff(key: string, ...otherKeys: string[]): string[];
 
     // Hash (Redis-like)
     hset(key: string, field: string, value: string): number;

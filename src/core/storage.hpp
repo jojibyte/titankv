@@ -3,7 +3,7 @@
 #include "titankv.hpp"
 #include "compressor.hpp"
 #include "utils.hpp"
-#include <unordered_map>
+#include <map>
 #include <string>
 #include <vector>
 #include <mutex>
@@ -46,7 +46,7 @@ public:
 
 private:
     mutable std::shared_mutex mutex_;
-    std::unordered_map<std::string, ValueEntry> store_;
+    std::map<std::string, ValueEntry> store_;
     std::unique_ptr<Compressor> compressor_;
     int compression_level_ = 3;
 

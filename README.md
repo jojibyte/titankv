@@ -86,6 +86,13 @@ db.sismember('tags', 'node');            // true
 db.smembers('tags');                     // ['node', 'fast', 'kv']
 db.scard('tags');                        // 3
 db.srem('tags', 'kv');                   // 1 (removed count)
+
+// Set operations
+db.sadd('s1', 'a', 'b', 'c');
+db.sadd('s2', 'b', 'c', 'd');
+db.sunion('s1', 's2');                   // ['a', 'b', 'c', 'd']
+db.sinter('s1', 's2');                   // ['b', 'c']
+db.sdiff('s1', 's2');                    // ['a']
 ```
 
 ## Hashes
@@ -232,6 +239,23 @@ db2.get('key');             // 'value'
 ```js
 // Explicit cleanup — flushes WAL, closes file handles
 db.close();
+```
+
+## Utility Commands
+
+```js
+db.exists('key');              // true (alias for has())
+db.dbsize();                   // 42 (alias for size())
+db.rename('old', 'new');       // 'OK' — preserves TTL
+db.type('mylist');              // 'list' | 'string' | 'set' | 'hash' | 'zset' | 'none'
+db.randomkey();                // 'some:random:key' or null
+```
+
+## Background Cleanup
+
+```js
+// Auto-purge expired keys every 5 seconds
+const db = new TitanKV(null, { cleanupIntervalMs: 5000 });
 ```
 
 ## Statistics

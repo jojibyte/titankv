@@ -9,6 +9,10 @@
 #include <mutex>
 #include <memory>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 namespace titan {
 
 enum class WalOp : uint8_t {
@@ -42,9 +46,16 @@ public:
 
 private:
     std::filesystem::path path_;
+    std::filesystem::path lock_path_;
     std::ofstream file_;
     std::mutex mutex_;
     std::unique_ptr<Compressor> compressor_;
+
+#ifdef _WIN32
+    HANDLE lock_handle_ = INVALID_HANDLE_VALUE;
+#else
+    int lock_fd_ = -1;
+#endif
 
     void writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value, int64_t ttl_ms = 0);
 };

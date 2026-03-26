@@ -1,12 +1,34 @@
 #include "wal.hpp"
 #include <cstring>
 
+#ifndef _WIN32
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/file.h>
+#endif
+
 namespace titan {
 
 WAL::WAL(const std::filesystem::path& dir) {
     if (!std::filesystem::exists(dir)) {
         std::filesystem::create_directories(dir);
     }
+    
+    lock_path_ = dir / "titan.lock";
+#ifdef _WIN32
+    lock_handle_ = CreateFileW(lock_path_.wstring().c_str(), GENERIC_READ | GENERIC_WRITE,
+                               0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (lock_handle_ == INVALID_HANDLE_VALUE) {
+        throw std::runtime_error("failed to acquire exclusive database lock (another process is using it)");
+    }
+#else
+    lock_fd_ = ::open(lock_path_.c_str(), O_RDWR | O_CREAT, 0666);
+    if (lock_fd_ < 0 || ::flock(lock_fd_, LOCK_EX | LOCK_NB) < 0) {
+        if (lock_fd_ >= 0) { ::close(lock_fd_); lock_fd_ = -1; }
+        throw std::runtime_error("failed to acquire exclusive database lock (another process is using it)");
+    }
+#endif
+
     path_ = dir / "titan.t";
     file_.open(path_, std::ios::binary | std::ios::app);
     if (!file_.is_open()) {
@@ -20,6 +42,21 @@ WAL::~WAL() {
         file_.flush();
         file_.close();
     }
+    
+#ifdef _WIN32
+    if (lock_handle_ != INVALID_HANDLE_VALUE) {
+        CloseHandle(lock_handle_);
+        lock_handle_ = INVALID_HANDLE_VALUE;
+        std::filesystem::remove(lock_path_);
+    }
+#else
+    if (lock_fd_ >= 0) {
+        ::flock(lock_fd_, LOCK_UN);
+        ::close(lock_fd_);
+        lock_fd_ = -1;
+        std::filesystem::remove(lock_path_);
+    }
+#endif
 }
 
 void WAL::writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value, int64_t ttl_ms) {

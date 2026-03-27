@@ -12,7 +12,7 @@
 - Pub/Sub, Transactions (MULTI/EXEC), TTL, EXPIRE
 - Optional WAL persistence with compaction
 - JSON import/export, streaming support
-- Zero runtime dependencies (native addon)
+- No external service dependency (in-process native addon)
 
 ## Installation
 
@@ -21,6 +21,7 @@ npm install titankv
 ```
 
 Requires CMake and a C++ compiler (MSVC / GCC / Clang).
+Prebuilt binaries are used when available; build tooling is required only when no matching prebuild exists.
 
 ## Quick Start
 
@@ -28,10 +29,10 @@ Requires CMake and a C++ compiler (MSVC / GCC / Clang).
 const { TitanKV } = require("titankv");
 
 // In-memory (fastest)
-const db = new TitanKV();
+const dbMemory = new TitanKV();
 
 // With persistence (IPC safe - blocks secondary instances in PM2/Cluster)
-const db = new TitanKV("./data", { sync: "sync" });
+const dbPersistent = new TitanKV("./data", { sync: "sync" });
 ```
 
 ## What You Can Build with TitanKV
@@ -401,7 +402,14 @@ const stats = db.stats();
 //   keyCount: 50000,
 //   rawBytes: 12158361,
 //   compressedBytes: 8905420,
-//   compressionRatio: 0.73
+//   compressionRatio: 0.73,
+//   walBytes: 5242880,
+//   logicalWriteBytes: 18000000,
+//   physicalWriteBytes: 21600000,
+//   compactionCount: 12,
+//   autoCompactionCount: 7,
+//   writeAmplification: 1.2,
+//   spaceAmplification: 1.08
 // }
 ```
 

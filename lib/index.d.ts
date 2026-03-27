@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 export interface TitanOptions {
     compressionLevel?: number;
     maxMemoryBytes?: number;
+    cleanupIntervalMs?: number;
     bloomFilter?: boolean;
     recoverMode?: 'permissive' | 'strict';
     autoCompact?: boolean;

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="author" content="joji" />
+    <title>TitanKV Frontend Test</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>TitanKV Frontend Test</h1>
+
+      <section aria-labelledby="put-title">
+        <h2 id="put-title">Put</h2>
+        <form id="put-form">
+          <label for="put-key">Key</label>
+          <input id="put-key" name="key" required maxlength="512" />
+
+          <label for="put-value">Value</label>
+          <input id="put-value" name="value" required />
+
+          <label for="put-ttl">TTL (ms, opsiyonel)</label>
+          <input id="put-ttl" name="ttl" type="number" min="0" />
+
+          <button type="submit">Kaydet</button>
+        </form>
+      </section>
+
+      <section aria-labelledby="get-title">
+        <h2 id="get-title">Get</h2>
+        <form id="get-form">
+          <label for="get-key">Key</label>
+          <input id="get-key" name="key" required maxlength="512" />
+          <button type="submit">Oku</button>
+        </form>
+        <p id="get-result" aria-live="polite"></p>
+      </section>
+
+      <section aria-labelledby="del-title">
+        <h2 id="del-title">Delete</h2>
+        <form id="del-form">
+          <label for="del-key">Key</label>
+          <input id="del-key" name="key" required maxlength="512" />
+          <button type="submit">Sil</button>
+        </form>
+      </section>
+
+      <section aria-labelledby="keys-title">
+        <h2 id="keys-title">Keys</h2>
+        <form id="keys-form">
+          <label for="keys-prefix">Prefix (opsiyonel)</label>
+          <input id="keys-prefix" name="prefix" />
+          <button type="submit">Listele</button>
+        </form>
+        <ul id="keys-list"></ul>
+      </section>
+
+      <p id="status" aria-live="polite"></p>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+  </html>

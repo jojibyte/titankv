@@ -1,6 +1,6 @@
 {
   "name": "titankv",
-  "version": "2.4.0",
+  "version": "3.0.0",
   "description": "ultra-fast embedded key-value engine for node.js. zstd compression, redis-like api, wal persistence. no server needed.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -9,6 +9,11 @@
     "rebuild": "cmake-js compile -- -DCMAKE_POLICY_VERSION_MINIMUM=3.5",
     "test": "node test/index.js",
     "benchmark": "node test/benchmark.js",
+    "benchmark:compare:add:sqlite": "npm --prefix benchmark/compare install better-sqlite3",
+    "benchmark:compare:add:lmdb": "npm --prefix benchmark/compare install lmdb",
+    "benchmark:compare:add:level": "npm --prefix benchmark/compare install level",
+    "benchmark:compare:add:rocksdb": "npm --prefix benchmark/compare install rocksdb",
+    "benchmark:compare": "node benchmark/compare/run.js",
     "test:all": "node test/index.js && node test/memory_leak.js && node test/express_session_test.js && node test/nextjs_cache_test.js && node test/benchmark.js"
   },
   "keywords": [

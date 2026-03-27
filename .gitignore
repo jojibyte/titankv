@@ -4,6 +4,8 @@ node_modules/
 # Build output
 build/
 prebuilds/
+cmake-build-*/
+CMakeUserPresets.json
 
 # IDE
 .vscode/
@@ -26,12 +28,23 @@ my-npm-db/
 *.log
 npm-debug.log*
 /benchmark.js
-.t
-bench_db
-bench_data/titan.t
 series.json
 bench-data
 .vscode
-ROADMAP.md
 .cursorignore
-titan.t
+
+# Windows / Visual Studio machine-specific files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.vcxproj.user
+
+# Local compare benchmark runtime artifacts
+benchmark/compare/.data/
+benchmark/compare/tmp/
+benchmark/compare/temp/
+

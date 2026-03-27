@@ -1,5 +1,6 @@
 #pragma once
 
+#include "titankv.hpp"
 #include "utils.hpp"
 #include "compressor.hpp"
 #include <string>
@@ -40,9 +41,12 @@ public:
     void logPrecompressedBatch(const std::vector<std::pair<std::string, std::vector<uint8_t>>>& batch);
     void logDel(const std::string& key);
 
-    std::vector<LogEntry> recover();
+    std::vector<LogEntry> recover(RecoveryMode mode);
     void compact(const std::vector<LogEntry>& active_entries);
     void flush();
+
+    const std::filesystem::path& path() const { return path_; }
+    bool usesChecksummedFormat() const { return checksummed_format_; }
 
 private:
     std::filesystem::path path_;
@@ -50,6 +54,7 @@ private:
     std::ofstream file_;
     std::mutex mutex_;
     std::unique_ptr<Compressor> compressor_;
+    bool checksummed_format_ = false;
 
 #ifdef _WIN32
     HANDLE lock_handle_ = INVALID_HANDLE_VALUE;
@@ -58,6 +63,9 @@ private:
 #endif
 
     void writeEntry(WalOp op, const std::string& key, const std::vector<uint8_t>& value, int64_t ttl_ms = 0);
+    static bool isChecksummedWalFile(const std::filesystem::path& path);
+    static void writeWalMagicHeader(std::ofstream& out);
+    void recoverCompactionArtifacts();
 };
 
 } // namespace titan

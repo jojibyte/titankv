@@ -4,8 +4,25 @@ const { TitanKV } = require('../lib');
 const fs = require('fs');
 const path = require('path');
 
-const ITERATIONS = 100000;
-const BATCH_SIZE = 1000;
+const ITERATIONS = Math.max(1000, Math.floor(envNum('BENCH_ITERATIONS', 100000)));
+const BATCH_SIZE = Math.max(100, Math.floor(envNum('BENCH_BATCH_SIZE', 1000)));
+
+function envNum(name, fallback) {
+    const raw = process.env[name];
+    if (raw === undefined) return fallback;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : fallback;
+}
+
+const QUALITY_GATES = {
+    enforce: process.env.BENCH_ENFORCE_GATES !== '0',
+    maxPersistWriteAmplification: envNum('BENCH_MAX_WA', 1.40),
+    maxPersistSpaceAmplification: envNum('BENCH_MAX_SA', 1.20),
+    minCompactionReductionRatio: envNum('BENCH_MIN_COMPACT_REDUCTION', 0.20),
+    minSeqWriteOps: envNum('BENCH_MIN_SEQ_WRITE_OPS', 0),
+    minSeqReadOps: envNum('BENCH_MIN_SEQ_READ_OPS', 0),
+    minHasOps: envNum('BENCH_MIN_HAS_OPS', 0),
+};
 
 function formatNum(n) {
     return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -32,6 +49,11 @@ function runBenchmarks() {
     console.log('╚═══════════════════════════════════════════════════════════════════╝');
     console.log(`  Iterations: ${formatNum(ITERATIONS)} | Batch: ${formatNum(BATCH_SIZE)}\n`);
 
+    const gateResults = [];
+    function gate(name, pass, detail) {
+        gateResults.push({ name, pass, detail });
+    }
+
     const tmpDir = path.join(__dirname, 'bench-data');
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 
@@ -42,7 +64,7 @@ function runBenchmarks() {
 
     const db = new TitanKV();
 
-    bench('put (100K)', () => {
+    const putResult = bench(`put (${formatNum(ITERATIONS)})`, () => {
         for (let i = 0; i < ITERATIONS; i++) {
             db.put(`key:${i}`, `value-${i}-${'x'.repeat(100)}`);
         }
@@ -54,14 +76,14 @@ function runBenchmarks() {
     console.log('│ Sequential Read                                                  │');
     console.log('└───────────────────────────────────────────────────────────────────┘');
 
-    bench('get (100K)', () => {
+    const getResult = bench(`get (${formatNum(ITERATIONS)})`, () => {
         for (let i = 0; i < ITERATIONS; i++) {
             db.get(`key:${i}`);
         }
         return { ops: ITERATIONS };
     });
 
-    bench('get miss (100K)', () => {
+    bench(`get miss (${formatNum(ITERATIONS)})`, () => {
         for (let i = 0; i < ITERATIONS; i++) {
             db.get(`miss:${i}`);
         }
@@ -74,7 +96,7 @@ function runBenchmarks() {
     console.log('└───────────────────────────────────────────────────────────────────┘');
 
     const db2 = new TitanKV();
-    bench('putBatch (100K, batch=1000)', () => {
+    bench(`putBatch (${formatNum(ITERATIONS)}, batch=${formatNum(BATCH_SIZE)})`, () => {
         for (let i = 0; i < ITERATIONS; i += BATCH_SIZE) {
             const pairs = [];
             for (let j = i; j < i + BATCH_SIZE && j < ITERATIONS; j++) {
@@ -85,7 +107,7 @@ function runBenchmarks() {
         return { ops: ITERATIONS };
     });
 
-    bench('getBatch (100K, batch=1000)', () => {
+    bench(`getBatch (${formatNum(ITERATIONS)}, batch=${formatNum(BATCH_SIZE)})`, () => {
         for (let i = 0; i < ITERATIONS; i += BATCH_SIZE) {
             const keys = [];
             for (let j = i; j < i + BATCH_SIZE && j < ITERATIONS; j++) {
@@ -101,7 +123,7 @@ function runBenchmarks() {
     console.log('│ Auxiliary Operations                                             │');
     console.log('└───────────────────────────────────────────────────────────────────┘');
 
-    bench('has (100K)', () => {
+    const hasResult = bench(`has (${formatNum(ITERATIONS)})`, () => {
         for (let i = 0; i < ITERATIONS; i++) {
             db.has(`key:${i}`);
         }
@@ -198,6 +220,10 @@ function runBenchmarks() {
     console.log(`  Compressed size:   ${formatBytes(stats.compressedBytes)}`);
     console.log(`  Compression ratio: ${ratio.toFixed(1)}x`);
     console.log(`  Space saved:       ${((1 - compMB / rawMB) * 100).toFixed(1)}%`);
+    console.log(`  WAL size:          ${formatBytes(stats.walBytes)}`);
+    console.log(`  Write amplification: ${stats.writeAmplification.toFixed(3)}x`);
+    console.log(`  Space amplification: ${stats.spaceAmplification.toFixed(3)}x`);
+    console.log(`  Compactions:       ${formatNum(stats.compactionCount)}`);
 
     // -- Persistence --
     console.log('\n┌───────────────────────────────────────────────────────────────────┐');
@@ -206,6 +232,7 @@ function runBenchmarks() {
 
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
     const PERSIST_N = 10000;
+    let persistWriteStats = null;
 
     bench(`write ${formatNum(PERSIST_N)} + flush`, () => {
         const pdb = new TitanKV(tmpDir, { sync: 'sync' });
@@ -213,6 +240,7 @@ function runBenchmarks() {
             pdb.put(`p:${i}`, sampleValue);
         }
         pdb.flush();
+        persistWriteStats = pdb.stats();
         pdb.close();
         return { ops: PERSIST_N };
     });
@@ -226,10 +254,81 @@ function runBenchmarks() {
     });
 
     // WAL file size
-    const walPath = path.join(tmpDir, 'titan.t');
+    const walPath = path.join(tmpDir, 'titan.tkv');
     if (fs.existsSync(walPath)) {
         const walSize = fs.statSync(walPath).size;
         console.log(`  WAL file size:     ${formatBytes(walSize)}`);
+    }
+
+    const persistStats = persistWriteStats || {
+        writeAmplification: 0,
+        spaceAmplification: 0,
+    };
+    console.log(`  Persist WA:        ${persistStats.writeAmplification.toFixed(3)}x`);
+    console.log(`  Persist SA:        ${persistStats.spaceAmplification.toFixed(3)}x`);
+
+    const compactDir = path.join(__dirname, 'bench-compact-data');
+    try { fs.rmSync(compactDir, { recursive: true, force: true }); } catch {}
+
+    const compactDb = new TitanKV(compactDir, { sync: 'sync' });
+    const COMPACT_N = 6000;
+    for (let i = 0; i < COMPACT_N; i++) {
+        compactDb.put(`c:${i}`, sampleValue);
+    }
+    for (let i = 0; i < Math.floor(COMPACT_N * 0.6); i++) {
+        compactDb.del(`c:${i}`);
+    }
+    compactDb.flush();
+
+    const compactWalPath = path.join(compactDir, 'titan.tkv');
+    const compactWalBefore = fs.existsSync(compactWalPath) ? fs.statSync(compactWalPath).size : 0;
+    compactDb.compact();
+    compactDb.flush();
+    const compactWalAfter = fs.existsSync(compactWalPath) ? fs.statSync(compactWalPath).size : 0;
+    compactDb.close();
+    try { fs.rmSync(compactDir, { recursive: true, force: true }); } catch {}
+
+    const compactionReductionRatio = compactWalBefore > 0
+        ? (compactWalBefore - compactWalAfter) / compactWalBefore
+        : 0;
+    console.log(`  Compact reduction: ${(compactionReductionRatio * 100).toFixed(1)}%`);
+
+    gate(
+        `Persist WA <= ${QUALITY_GATES.maxPersistWriteAmplification.toFixed(2)}x`,
+        persistStats.writeAmplification <= QUALITY_GATES.maxPersistWriteAmplification,
+        `${persistStats.writeAmplification.toFixed(3)}x`
+    );
+    gate(
+        `Persist SA <= ${QUALITY_GATES.maxPersistSpaceAmplification.toFixed(2)}x`,
+        persistStats.spaceAmplification <= QUALITY_GATES.maxPersistSpaceAmplification,
+        `${persistStats.spaceAmplification.toFixed(3)}x`
+    );
+    gate(
+        `Compact reduction >= ${(QUALITY_GATES.minCompactionReductionRatio * 100).toFixed(1)}%`,
+        compactionReductionRatio >= QUALITY_GATES.minCompactionReductionRatio,
+        `${(compactionReductionRatio * 100).toFixed(1)}%`
+    );
+
+    if (QUALITY_GATES.minSeqWriteOps > 0) {
+        gate(
+            `Seq write >= ${formatNum(Math.round(QUALITY_GATES.minSeqWriteOps))} ops/s`,
+            putResult.opsPerSec >= QUALITY_GATES.minSeqWriteOps,
+            `${formatNum(putResult.opsPerSec)} ops/s`
+        );
+    }
+    if (QUALITY_GATES.minSeqReadOps > 0) {
+        gate(
+            `Seq read >= ${formatNum(Math.round(QUALITY_GATES.minSeqReadOps))} ops/s`,
+            getResult.opsPerSec >= QUALITY_GATES.minSeqReadOps,
+            `${formatNum(getResult.opsPerSec)} ops/s`
+        );
+    }
+    if (QUALITY_GATES.minHasOps > 0) {
+        gate(
+            `Has >= ${formatNum(Math.round(QUALITY_GATES.minHasOps))} ops/s`,
+            hasResult.opsPerSec >= QUALITY_GATES.minHasOps,
+            `${formatNum(hasResult.opsPerSec)} ops/s`
+        );
     }
 
     // -- JSON Import --
@@ -254,9 +353,24 @@ function runBenchmarks() {
     // -- Cleanup --
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 
+    console.log('\n┌───────────────────────────────────────────────────────────────────┐');
+    console.log('│ Beta.2 Quality Gates                                             │');
+    console.log('└───────────────────────────────────────────────────────────────────┘');
+
+    let gateFailed = 0;
+    for (const item of gateResults) {
+        const state = item.pass ? 'PASS' : 'FAIL';
+        console.log(`  [${state}] ${item.name} (${item.detail})`);
+        if (!item.pass) gateFailed++;
+    }
+
     console.log('\n╔═══════════════════════════════════════════════════════════════════╗');
     console.log('║                       Benchmark Complete                          ║');
     console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
+
+    if (QUALITY_GATES.enforce && gateFailed > 0) {
+        throw new Error(`Benchmark quality gates failed: ${gateFailed}`);
+    }
 }
 
 runBenchmarks();

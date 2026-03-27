@@ -2,6 +2,13 @@ import { EventEmitter } from 'events';
 
 export interface TitanOptions {
     compressionLevel?: number;
+    maxMemoryBytes?: number;
+    bloomFilter?: boolean;
+    recoverMode?: 'permissive' | 'strict';
+    autoCompact?: boolean;
+    compactMinOps?: number;
+    compactTombstoneRatio?: number;
+    compactMinWalBytes?: number;
     sync?: 'sync' | 'async' | 'none';
 }
 
@@ -14,6 +21,13 @@ export interface TitanStats {
     rawBytes: number;
     compressedBytes: number;
     compressionRatio: number;
+    walBytes: number;
+    logicalWriteBytes: number;
+    physicalWriteBytes: number;
+    compactionCount: number;
+    autoCompactionCount: number;
+    writeAmplification: number;
+    spaceAmplification: number;
 }
 
 export interface ImportOptions {
@@ -70,7 +84,9 @@ export class TitanKV extends EventEmitter {
 
     // Core
     put(key: string, value: string, ttlMs?: number): void;
+    putAsync(key: string, value: string, ttlMs?: number): Promise<void>;
     get(key: string): string | null;
+    getAsync(key: string): Promise<string | null>;
     del(key: string): boolean;
     exists(key: string): boolean;
     dbsize(): number;
@@ -87,14 +103,20 @@ export class TitanKV extends EventEmitter {
 
     // Query
     keys(limit?: number): string[];
+    keysAsync(limit?: number): Promise<string[]>;
     scan(prefix: string, limit?: number): [string, string][];
+    scanAsync(prefix: string, limit?: number): Promise<[string, string][]>;
     range(start: string, end: string, limit?: number): [string, string][];
+    rangeAsync(start: string, end: string, limit?: number): Promise<[string, string][]>;
     countPrefix(prefix: string): number;
+    countPrefixAsync(prefix: string): Promise<number>;
     keysMatch(pattern: string, limit?: number): string[];
 
     // Batch
     putBatch(pairs: [string, string][]): void;
+    putBatchAsync(pairs: [string, string][]): Promise<void>;
     getBatch(keys: string[]): (string | null)[];
+    getBatchAsync(keys: string[]): Promise<(string | null)[]>;
 
     // TTL
     expire(key: string, ttlMs: number): boolean;
@@ -164,7 +186,9 @@ export class TitanKV extends EventEmitter {
 
     // Persistence
     flush(): void;
+    flushAsync(): Promise<void>;
     compact(): void;
+    compactAsync(): Promise<void>;
 
     // Stats
     stats(): TitanStats;

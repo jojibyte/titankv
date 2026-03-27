@@ -3,7 +3,7 @@ name: Build and Publish
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ["v*"]
   pull_request:
     branches: [main]
 
@@ -59,7 +59,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [16, 18, 20, 22]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,8 +80,37 @@ jobs:
       - name: Run tests
         run: npm test
 
+  perf-regression:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Download prebuild
+        uses: actions/download-artifact@v4
+        with:
+          name: prebuild-linux-x64
+          path: prebuilds/
+
+      - name: Run pinned performance regression benchmark
+        run: |
+          BENCH_ENFORCE_GATES=1 \
+          BENCH_ITERATIONS=50000 \
+          BENCH_BATCH_SIZE=500 \
+          BENCH_MIN_SEQ_WRITE_OPS=180000 \
+          BENCH_MIN_SEQ_READ_OPS=600000 \
+          BENCH_MIN_HAS_OPS=1000000 \
+          node test/benchmark.js
+
   publish:
-    needs: [build, test-versions]
+    needs: [build, test-versions, perf-regression]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -93,7 +122,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: "https://registry.npmjs.org"
 
       - name: Download all prebuilds
         uses: actions/download-artifact@v4

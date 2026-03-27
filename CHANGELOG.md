@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+## [3.0.0] - 2026-03-27
+
+### Added
+
+- **Frontend test example app**: Added `examples/frontend-test` with a lightweight HTTP API and browser UI to manually test put/get/delete/list flows.
+- **README capability guide**: Added a "What You Can Build with TitanKV" section and a performance-first usage guide.
+- **Recovery manifest foundation (`titan.manifest`)**: Added deterministic recovery metadata for WAL format/state and SSTable segment inventory.
+- **Checksummed WAL/SSTable v3 path**: New WAL records and newly built SSTables now include integrity checks to detect corruption.
+- **Recovery mode option**: Added `recoverMode` option (`permissive` | `strict`) for corruption handling control during startup.
+- **SSTable sparse fence index**: Added fence-pointer based key search narrowing for better cache locality on large SSTable indices.
+- **Optional SSTable Bloom filter**: Added `bloomFilter` option (default `true`) for faster negative lookups across many SSTables.
+- **Async batch APIs**: Added `putBatchAsync` and `getBatchAsync` to extend async coverage beyond single-key operations.
+- **Async persistence APIs**: Added `flushAsync` and `compactAsync` to move WAL lifecycle operations off the event loop.
+- **Async query APIs**: Added `keysAsync`, `scanAsync`, `rangeAsync`, and `countPrefixAsync` for non-blocking high-cardinality reads.
+- **Compaction policy options**: Added `autoCompact`, `compactMinOps`, `compactTombstoneRatio`, and `compactMinWalBytes` options for policy-driven WAL compaction.
+- **Amplification metrics in stats**: Added `walBytes`, `logicalWriteBytes`, `physicalWriteBytes`, `compactionCount`, `autoCompactionCount`, `writeAmplification`, and `spaceAmplification` to `stats()`.
+- **End-to-end migration guide**: Added `MIGRATION_GUIDE.md` with upgrade, verification, and rollback playbook for v2.4.x -> v3.0.
+- **Compatibility matrix**: Added `COMPATIBILITY_MATRIX.md` with runtime/storage compatibility and explicit historical breakages.
+
+### Changed
+
+- **WAL default filename**: Changed default WAL file from `titan.t` to `titan.tkv`.
+- **Backward compatibility for WAL migration**: If `titan.tkv` does not exist but legacy `titan.t` exists, TitanKV automatically migrates (or safely falls back) during startup.
+- **Roadmap language and structure**: Rewrote `ROADMAP.md` in English with a step-by-step, performance-first v3 plan and measurable release gates.
+- **Streaming JSON import path**: `importJSONStream` now uses async batch writes internally to reduce event-loop pressure on large imports.
+- **Auto-compaction trigger engine**: TitanEngine now evaluates WAL operation count, tombstone ratio, and WAL size thresholds before auto-running `compact()`.
+- **Background-safe compaction lifecycle**: Policy-triggered auto-compaction now runs on a background engine thread, and engine shutdown waits for in-flight compaction to complete safely.
+- **Interruption-safe WAL compact recovery**: Added `.bak/.tmp` startup artifact recovery and rollback-aware compact swap to preserve recoverability across interrupted compaction phases.
+- **Benchmark metric visibility**: `test/benchmark.js` now prints write amplification, space amplification, WAL bytes, and compaction counters.
+- **CI performance regression stage**: Added pinned benchmark scenario and throughput alarms in CI (`perf-regression` job).
+- **Benchmark throughput gates**: `test/benchmark.js` now supports pinned throughput floors via env gates (`BENCH_MIN_SEQ_WRITE_OPS`, `BENCH_MIN_SEQ_READ_OPS`, `BENCH_MIN_HAS_OPS`) and scenario sizing knobs.
+
 ## [2.4.0] - 2026-03-26
 
 ### Added
@@ -14,6 +48,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   - **Next.js Cache Adapter (`titankv-nextjs-cache`)**: Added a Next.js App Router compatible Custom Cache Handler (`lib/nextjs-cache`). Seamlessly replace Vercel KV or Redis with TitanKV to cache `fetch` requests and ISR completely in-memory with disk persistence.
 
 ### Fixed
+
 - **Cascade Deletions for Complex Types**: Fixed a memory/storage leak where calling `db.del(key)` on sets, lists, or hashes would only delete the meta-mapping but leave the underlying prefixed keys in the C++ layer.
 - **Benchmark Lock Release**: Fixed issue in `test/benchmark.js` where lack of explicit `close()` calls caused IPC lock failures during testing.
 

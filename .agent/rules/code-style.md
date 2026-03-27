@@ -2,7 +2,7 @@
 trigger: always_on
 ---
 
-Coding Style: Adopt a minimalist, "hacker/OOP js pro dev" aesthetic: do NOT use semicolons (rely on ASI), use CommonJS (require), and use short but descriptive variable names.
+Coding Style: Minimal, clean JavaScript using simple OOP, no semicolons (ASI), and short but descriptive naming
 
 Architecture: Avoid deep class inheritance (class A extends B); instead, use Functional Mixins (e.g., class Store extends Monitorable(Configurable(Base))).
 

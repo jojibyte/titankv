@@ -1,0 +1,32 @@
+/* Author: joji */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #f6f7f9;
+  color: #101828;
+}
+main {
+  max-width: 760px;
+  margin: 24px auto;
+  padding: 16px;
+}
+section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+h1, h2 { margin-top: 0; }
+form {
+  display: grid;
+  gap: 8px;
+}
+input, button {
+  height: 36px;
+  padding: 0 10px;
+}
+button { cursor: pointer; }
+#status[data-state='error'] { color: #b42318; }
+#status[data-state='ok'] { color: #067647; }

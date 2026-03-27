@@ -46,11 +46,11 @@ const durationMs = Number(end - start) / 1e6;
 console.log(`Write Time: ${durationMs.toFixed(2)} ms`);
 
 // Check Disk Size
-const walPath = path.join(DB_PATH, 'titan.t');
+const walPath = path.join(DB_PATH, 'titan.tkv');
 const stats = fs.statSync(walPath);
 const diskSizeMB = stats.size / 1024 / 1024;
 
-console.log(`\nDisk Size (.t): ${diskSizeMB.toFixed(2)} MB`);
+console.log(`\nDisk Size (.tkv): ${diskSizeMB.toFixed(2)} MB`);
 console.log(`Compression Ratio: ${(jsonSizeMB / diskSizeMB).toFixed(2)}x`);
 console.log(`Space Savings: ${(100 * (1 - diskSizeMB / jsonSizeMB)).toFixed(2)}%`);
 

@@ -1,0 +1,13 @@
+{
+  "name": "titankv-compare-bench",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated dependencies for TitanKV cross-engine compare benchmarks",
+  "main": "run.js",
+  "scripts": {
+    "benchmark": "node run.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0"
+  }
+}

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="author" content="joji" />
+    <title>TitanKV Compare Benchmark Report</title>
+    <style>
+      :root { --line: #ddd; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 10px;
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 14px;
+      }
+      h1 { margin: 0 0 6px; }
+      h2 { margin: 16px 0 8px; }
+      p { margin: 0 0 8px; }
+      table {
+        border-collapse: collapse;
+        table-layout: fixed;
+        width: max-content;
+        min-width: 860px;
+        font-size: 11px;
+      }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 4px;
+        text-align: center;
+        white-space: nowrap;
+      }
+      th.bench {
+        position: sticky;
+        left: 0;
+        width: 260px;
+        text-align: left;
+        background: #fff;
+        z-index: 2;
+      }
+      td.fast { background: #7ac67a; }
+      td.mid { background: #e8db7d; }
+      td.slow { background: #ef7f7f; }
+      small { display: block; font-size: 10px; }
+      .table-wrap { overflow: auto; border: 1px solid var(--line); width: 100%; }
+      .summary-table { min-width: 1500px; }
+      .summary-table th:first-child,
+      .summary-table td:first-child,
+      .summary-table th:nth-child(2),
+      .summary-table td:nth-child(2) {
+        position: sticky;
+        background: #fff;
+        z-index: 2;
+      }
+      .summary-table th:first-child,
+      .summary-table td:first-child { left: 0; width: 50px; text-align: center; }
+      .summary-table th:nth-child(2),
+      .summary-table td:nth-child(2) { left: 50px; width: 180px; text-align: left; }
+      .meta {
+        width: 100%;
+        min-width: 680px;
+      }
+      .meta th {
+        text-align: left;
+        width: 140px;
+        background: #fafafa;
+      }
+      .meta td {
+        text-align: left;
+      }
+      .mono { font-family: Consolas, Menlo, monospace; }
+      .note {
+        border: 1px solid var(--line);
+        background: #fafafa;
+        padding: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>TitanKV Compare Benchmark Report</h1>
+    <p>
+      TitanKV and similar embedded/local engines benchmarked on identical operations.
+      Colors: green = faster, yellow = medium, red = slower (based on slowdown vs fastest active engine).
+    </p>
+    <div class="note">
+      <p><strong>Interpretation:</strong> lower milliseconds and lower geometric mean are better.</p>
+      <p><strong>Reliability:</strong> each engine is measured on fresh database directories and aggregated as median.</p>
+    </div>
+    <p class="mono">
+      Run: 2026-03-27T11:08:55.716Z | iterations: 10,000 | warmup: 1,000 | rounds: 11
+    </p>
+    <p class="mono"><strong>Stage 4/5</strong>: titankv + better-sqlite3 + lmdb + level</p>
+    <p><strong>Skipped engines:</strong> none</p>
+
+    <h2>Environment</h2>
+    <div class="table-wrap">
+      <table class="meta mono">
+      <tbody>
+        <tr><th>CPU</th><td colspan="3">AMD Ryzen 5 5500</td></tr>
+        <tr><th>Method</th><td colspan="3">median of 11 measured rounds, 2 burn-in rounds ignored, fresh data directory each round</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2>Engine Summary</h2>
+    <div class="table-wrap">
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Engine</th>
+            <th>Geo Mean</th>
+            <th>Put ms</th>
+            <th>Get ms</th>
+            <th>Miss ms</th>
+            <th>Mixed ms</th>
+            <th>Hot-key ms</th>
+            <th>Large Put ms</th>
+            <th>Large Get ms</th>
+            <th>Stability CV</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+        <td>1</td>
+        <td>titankv</td>
+        <td>1.04</td>
+        <td>146.6 ms</td>
+        <td>16.3 ms</td>
+        <td>8.7 ms</td>
+        <td>45.7 ms</td>
+        <td>14.8 ms</td>
+        <td>25.9 ms</td>
+        <td>2.8 ms</td>
+        <td>19.4%</td>
+      </tr><tr>
+        <td>2</td>
+        <td>better-sqlite3</td>
+        <td>2.77</td>
+        <td>391.0 ms</td>
+        <td>38.5 ms</td>
+        <td>30.2 ms</td>
+        <td>78.4 ms</td>
+        <td>37.3 ms</td>
+        <td>85.3 ms</td>
+        <td>8.3 ms</td>
+        <td>6.4%</td>
+      </tr><tr>
+        <td>3</td>
+        <td>lmdb</td>
+        <td>3.02</td>
+        <td>2064.6 ms</td>
+        <td>15.2 ms</td>
+        <td>11.3 ms</td>
+        <td>413.5 ms</td>
+        <td>11.8 ms</td>
+        <td>198.7 ms</td>
+        <td>5.0 ms</td>
+        <td>33.0%</td>
+      </tr><tr>
+        <td>4</td>
+        <td>level</td>
+        <td>10.43</td>
+        <td>479.5 ms</td>
+        <td>310.9 ms</td>
+        <td>325.8 ms</td>
+        <td>328.1 ms</td>
+        <td>305.4 ms</td>
+        <td>79.2 ms</td>
+        <td>26.2 ms</td>
+        <td>4.9%</td>
+      </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Throughput (ops/s)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="bench">Name / Throughput for...</th>
+            <th>titankv</th><th>better-sqlite3</th><th>lmdb</th><th>level</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th class="bench">insert 10,000 rows</th><td>68,217 ops/s</td><td>25,572 ops/s</td><td>4,844 ops/s</td><td>20,854 ops/s</td></tr><tr><th class="bench">read 10,000 rows</th><td>614,424 ops/s</td><td>259,504 ops/s</td><td>658,220 ops/s</td><td>32,167 ops/s</td></tr><tr><th class="bench">read 10,000 misses</th><td>1,155,215 ops/s</td><td>331,109 ops/s</td><td>882,208 ops/s</td><td>30,697 ops/s</td></tr><tr><th class="bench">mixed 80% read / 20% write (10,000 ops)</th><td>218,943 ops/s</td><td>127,628 ops/s</td><td>24,182 ops/s</td><td>30,481 ops/s</td></tr><tr><th class="bench">hot-key read (10,000 ops, 10/1000 skew)</th><td>673,627 ops/s</td><td>268,304 ops/s</td><td>850,347 ops/s</td><td>32,744 ops/s</td></tr><tr><th class="bench">put 500 values (16,384 bytes each)</th><td>19,293 ops/s</td><td>5,864 ops/s</td><td>2,516 ops/s</td><td>6,316 ops/s</td></tr><tr><th class="bench">get 500 values (16,384 bytes each)</th><td>179,218 ops/s</td><td>60,028 ops/s</td><td>100,088 ops/s</td><td>19,100 ops/s</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Duration in milliseconds (Slowdown = Duration / Fastest)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="bench">Name / Duration for...</th>
+            <th>titankv</th><th>better-sqlite3</th><th>lmdb</th><th>level</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th class="bench">insert 10,000 rows</th><td class="fast">146.6 <small>(1.00x)</small></td><td class="slow">391.0 <small>(2.67x)</small></td><td class="slow">2064.6 <small>(14.08x)</small></td><td class="slow">479.5 <small>(3.27x)</small></td></tr><tr><th class="bench">read 10,000 rows</th><td class="fast">16.3 <small>(1.07x)</small></td><td class="slow">38.5 <small>(2.54x)</small></td><td class="fast">15.2 <small>(1.00x)</small></td><td class="slow">310.9 <small>(20.46x)</small></td></tr><tr><th class="bench">read 10,000 misses</th><td class="fast">8.7 <small>(1.00x)</small></td><td class="slow">30.2 <small>(3.49x)</small></td><td class="mid">11.3 <small>(1.31x)</small></td><td class="slow">325.8 <small>(37.63x)</small></td></tr><tr><th class="bench">mixed 80% read / 20% write (10,000 ops)</th><td class="fast">45.7 <small>(1.00x)</small></td><td class="slow">78.4 <small>(1.72x)</small></td><td class="slow">413.5 <small>(9.05x)</small></td><td class="slow">328.1 <small>(7.18x)</small></td></tr><tr><th class="bench">hot-key read (10,000 ops, 10/1000 skew)</th><td class="mid">14.8 <small>(1.26x)</small></td><td class="slow">37.3 <small>(3.17x)</small></td><td class="fast">11.8 <small>(1.00x)</small></td><td class="slow">305.4 <small>(25.97x)</small></td></tr><tr><th class="bench">put 500 values (16,384 bytes each)</th><td class="fast">25.9 <small>(1.00x)</small></td><td class="slow">85.3 <small>(3.29x)</small></td><td class="slow">198.7 <small>(7.67x)</small></td><td class="slow">79.2 <small>(3.05x)</small></td></tr><tr><th class="bench">get 500 values (16,384 bytes each)</th><td class="fast">2.8 <small>(1.00x)</small></td><td class="slow">8.3 <small>(2.99x)</small></td><td class="slow">5.0 <small>(1.79x)</small></td><td class="slow">26.2 <small>(9.38x)</small></td></tr>
+          <tr>
+            <th class="bench">weighted geometric mean</th>
+            <td class="fast">1.04</td><td class="slow">2.77</td><td class="slow">3.02</td><td class="slow">10.43</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>

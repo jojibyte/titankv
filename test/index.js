@@ -36,6 +36,21 @@ async function runTests() {
     test('delete', db.del('user:1') === true);
     test('delete again', db.del('user:1') === false);
 
+    // === Async ===
+    section('Async Operations');
+
+    db.clear();
+    let asyncErr = null;
+    let asyncVal = null;
+    try {
+        await db.putAsync('async:1', 'ok');
+        asyncVal = await db.getAsync('async:1');
+    } catch (err) {
+        asyncErr = err;
+    }
+    test('putAsync does not throw', asyncErr === null);
+    test('getAsync returns written value', asyncVal === 'ok');
+
     // === Atomic ===
     section('Atomic Operations');
 
@@ -54,6 +69,20 @@ async function runTests() {
     test('batch put', db.size() === 3);
     const batch = db.getBatch(['a', 'b', 'missing', 'c']);
     test('batch get', batch[0] === '1' && batch[1] === '2' && batch[2] === null && batch[3] === '3');
+
+    section('Async Batch Operations');
+
+    db.clear();
+    let asyncBatchErr = null;
+    let asyncBatch = [];
+    try {
+        await db.putBatchAsync([['ab:1', '10'], ['ab:2', '20'], ['ab:3', '30']]);
+        asyncBatch = await db.getBatchAsync(['ab:1', 'ab:2', 'ab:missing', 'ab:3']);
+    } catch (err) {
+        asyncBatchErr = err;
+    }
+    test('putBatchAsync does not throw', asyncBatchErr === null);
+    test('getBatchAsync returns expected values', asyncBatch[0] === '10' && asyncBatch[1] === '20' && asyncBatch[2] === null && asyncBatch[3] === '30');
 
     // === Query ===
     section('Query Operations');
@@ -74,6 +103,28 @@ async function runTests() {
     const ranged = db.range('user:1', 'user:2');
     test('range query', ranged.length === 2);
     test('keys', db.keys().length === 5);
+
+    section('Async Query Operations');
+
+    let asyncQueryErr = null;
+    let asyncKeys = [];
+    let asyncScan = [];
+    let asyncRange = [];
+    let asyncCount = 0;
+    try {
+        asyncKeys = await db.keysAsync();
+        asyncScan = await db.scanAsync('user:');
+        asyncRange = await db.rangeAsync('user:1', 'user:2');
+        asyncCount = await db.countPrefixAsync('user:');
+    } catch (err) {
+        asyncQueryErr = err;
+    }
+
+    test('async query methods do not throw', asyncQueryErr === null);
+    test('keysAsync returns all keys', asyncKeys.length === 5);
+    test('scanAsync prefix size', asyncScan.length === 3);
+    test('rangeAsync query size', asyncRange.length === 2);
+    test('countPrefixAsync result', asyncCount === 3);
 
     // === KEYS glob pattern ===
     section('KEYS Glob Pattern Matching');
@@ -334,10 +385,35 @@ async function runTests() {
     db.put(driftKey, 'A'.repeat(valSize)); // Overwrite with same size
     const s2 = db.stats();
     test('stats.rawBytes stable on overwrite', s2.rawBytes === s1.rawBytes);
+    test('stats.walBytes is number', typeof s.walBytes === 'number');
+    test('stats.writeAmplification is number', typeof s.writeAmplification === 'number');
+    test('stats.spaceAmplification is number', typeof s.spaceAmplification === 'number');
 
     db.del(driftKey);
     const s3 = db.stats();
     test('stats.rawBytes reduces on delete', s3.rawBytes < s2.rawBytes);
+
+    const ampDir = path.join(__dirname, 'amp-metrics-data');
+    try { fs.rmSync(ampDir, { recursive: true, force: true }); } catch {}
+
+    const ampDb = new TitanKV(ampDir, { sync: 'sync' });
+    for (let i = 0; i < 24; i++) {
+        ampDb.put(`amp:${i}`, 'payload-'.repeat(64));
+    }
+    for (let i = 0; i < 12; i++) {
+        ampDb.del(`amp:${i}`);
+    }
+    ampDb.compact();
+    const ampStats = ampDb.stats();
+
+    test('compactionCount increments after compact', ampStats.compactionCount >= 1);
+    test('logicalWriteBytes tracked', ampStats.logicalWriteBytes > 0);
+    test('physicalWriteBytes tracked', ampStats.physicalWriteBytes > 0);
+    test('writeAmplification finite', Number.isFinite(ampStats.writeAmplification));
+    test('spaceAmplification finite', Number.isFinite(ampStats.spaceAmplification));
+    ampDb.close();
+
+    try { fs.rmSync(ampDir, { recursive: true, force: true }); } catch {}
 
     // === Persistence ===
     section('Persistence & Recovery');
@@ -347,10 +423,22 @@ async function runTests() {
     db1.put('persist:2', 'value2');
     db1.incr('persist:counter');
     db1.flush();
+    db1.close();
 
     const db2 = new TitanKV(testDir, { sync: 'sync' });
     test('recover put', db2.get('persist:1') === 'value1');
     test('recover incr', db2.get('persist:counter') === '1');
+
+    let asyncPersistErr = null;
+    try {
+        await db2.flushAsync();
+        await db2.compactAsync();
+    } catch (err) {
+        asyncPersistErr = err;
+    }
+    test('flushAsync/compactAsync do not throw', asyncPersistErr === null);
+
+    db2.close();
 
     // === Resilience & Corruption ===
     section('Resilience & Corruption');
@@ -525,6 +613,177 @@ async function runTests() {
     test('bg: after cleanup size', bgDb.size() <= 1);
     test('bg: alive key survives', bgDb.get('bg:1') === 'alive');
     bgDb.close();
+
+    section('v3.0.0 – Spill to Disk (SSTable Read Path)');
+
+    const spillDir = path.join(__dirname, 'spill-data');
+    try { fs.rmSync(spillDir, { recursive: true, force: true }); } catch {}
+
+    const spillDb = new TitanKV(spillDir, { sync: 'sync', maxMemoryBytes: 4096 });
+    const spillVal = 'x'.repeat(256);
+    const spillN = 80;
+
+    for (let i = 0; i < spillN; i++) {
+        spillDb.put(`spill:${i}`, spillVal);
+    }
+
+    test('spill size includes spilled keys', spillDb.size() === spillN);
+    test('spill get from sstable', spillDb.get('spill:42') === spillVal);
+    test('spill has from sstable', spillDb.has('spill:79') === true);
+    test('spill scan prefix size', spillDb.scan('spill:').length === spillN);
+
+    test('spill del existing', spillDb.del('spill:42') === true);
+    test('spill del masks old sstable value', spillDb.get('spill:42') === null);
+    test('spill size after del', spillDb.size() === spillN - 1);
+
+    spillDb.close();
+    try { fs.rmSync(spillDir, { recursive: true, force: true }); } catch {}
+
+    section('v3.0.0 – Spill Restart Recovery');
+
+    const spillRecoveryDir = path.join(__dirname, 'spill-recovery-data');
+    try { fs.rmSync(spillRecoveryDir, { recursive: true, force: true }); } catch {}
+
+    const spillDbA = new TitanKV(spillRecoveryDir, { sync: 'sync', maxMemoryBytes: 4096 });
+    for (let i = 0; i < spillN; i++) {
+        spillDbA.put(`spillr:${i}`, spillVal);
+    }
+    spillDbA.close();
+
+    const walPath = path.join(spillRecoveryDir, 'titan.tkv');
+    try { fs.rmSync(walPath, { force: true }); } catch {}
+
+    const spillDbB = new TitanKV(spillRecoveryDir, { sync: 'sync', maxMemoryBytes: 4096 });
+    test('spill restart get from sstable fallback', spillDbB.get('spillr:42') === spillVal);
+    test('spill restart size from sstable fallback', spillDbB.size() === spillN);
+    spillDbB.close();
+
+    try { fs.rmSync(spillRecoveryDir, { recursive: true, force: true }); } catch {}
+
+    section('v3.0.0 – Recovery Manifest & Corruption Modes');
+
+    const integrityDir = path.join(__dirname, 'integrity-data');
+    try { fs.rmSync(integrityDir, { recursive: true, force: true }); } catch {}
+
+    const integrityA = new TitanKV(integrityDir, { sync: 'sync', maxMemoryBytes: 4096 });
+    for (let i = 0; i < 48; i++) {
+        integrityA.put(`manifest:${i}`, spillVal);
+    }
+    integrityA.put('mode:key', 'ok');
+    integrityA.close();
+
+    const manifestPath = path.join(integrityDir, 'titan.manifest');
+    test('manifest file created', fs.existsSync(manifestPath));
+    if (fs.existsSync(manifestPath)) {
+        const manifestText = fs.readFileSync(manifestPath, 'utf8');
+        test('manifest contains sstable entries', manifestText.includes('sst\t'));
+    }
+
+    const integrityWalPath = path.join(integrityDir, 'titan.tkv');
+    fs.appendFileSync(integrityWalPath, Buffer.from([0xde, 0xad, 0xbe]));
+
+    const permissiveDb = new TitanKV(integrityDir, { sync: 'sync', recoverMode: 'permissive' });
+    test('permissive mode recovers valid prefix', permissiveDb.get('mode:key') === 'ok');
+    permissiveDb.close();
+
+    let strictError = false;
+    try {
+        const strictDb = new TitanKV(integrityDir, { sync: 'sync', recoverMode: 'strict' });
+        strictDb.close();
+    } catch {
+        strictError = true;
+    }
+    test('strict mode rejects corrupted wal', strictError === true);
+
+    try { fs.rmSync(integrityDir, { recursive: true, force: true }); } catch {}
+
+    section('v3.0.0 – Bloom Filter Toggle');
+
+    const bloomDir = path.join(__dirname, 'bloom-data');
+    try { fs.rmSync(bloomDir, { recursive: true, force: true }); } catch {}
+
+    const bloomOffDb = new TitanKV(bloomDir, { sync: 'sync', maxMemoryBytes: 4096, bloomFilter: false });
+    for (let i = 0; i < 64; i++) {
+        bloomOffDb.put(`bloom:${i}`, spillVal);
+    }
+    bloomOffDb.close();
+
+    const bloomOffReadDb = new TitanKV(bloomDir, { sync: 'sync', bloomFilter: false });
+    test('bloom off still reads existing key', bloomOffReadDb.get('bloom:42') === spillVal);
+    test('bloom off missing key returns null', bloomOffReadDb.get('bloom:missing') === null);
+    bloomOffReadDb.close();
+
+    const bloomOnReadDb = new TitanKV(bloomDir, { sync: 'sync', bloomFilter: true });
+    test('bloom on reads existing key', bloomOnReadDb.get('bloom:7') === spillVal);
+    bloomOnReadDb.close();
+
+    try { fs.rmSync(bloomDir, { recursive: true, force: true }); } catch {}
+
+    section('v3.0.0 – Auto Compaction Policy');
+
+    const compactDir = path.join(__dirname, 'auto-compact-data');
+    try { fs.rmSync(compactDir, { recursive: true, force: true }); } catch {}
+
+    const compactDb = new TitanKV(compactDir, {
+        sync: 'sync',
+        autoCompact: true,
+        compactMinOps: 8,
+        compactTombstoneRatio: 0.4,
+        compactMinWalBytes: 1024,
+    });
+
+    const compactValue = 'v'.repeat(2048);
+    for (let i = 0; i < 32; i++) {
+        compactDb.put(`ac:${i}`, compactValue);
+    }
+    compactDb.flush();
+
+    const compactWalPath = path.join(compactDir, 'titan.tkv');
+    const walBefore = fs.existsSync(compactWalPath) ? fs.statSync(compactWalPath).size : 0;
+
+    for (let i = 0; i < 24; i++) {
+        compactDb.del(`ac:${i}`);
+    }
+    compactDb.flush();
+    compactDb.close();
+
+    const walAfter = fs.existsSync(compactWalPath) ? fs.statSync(compactWalPath).size : 0;
+    test('auto compact shrinks wal after tombstone-heavy churn', walAfter > 0 && walAfter < walBefore);
+
+    const compactReadDb = new TitanKV(compactDir, { sync: 'sync' });
+    test('auto compact recovery keeps alive keys', compactReadDb.get('ac:31') === compactValue);
+    test('auto compact recovery drops deleted keys', compactReadDb.get('ac:1') === null);
+    compactReadDb.close();
+
+    try { fs.rmSync(compactDir, { recursive: true, force: true }); } catch {}
+
+    section('v3.0.0 – Compaction Interruption Recovery');
+
+    const interruptionDir = path.join(__dirname, 'compaction-interruption-data');
+    try { fs.rmSync(interruptionDir, { recursive: true, force: true }); } catch {}
+
+    const interruptionDb = new TitanKV(interruptionDir, { sync: 'sync' });
+    interruptionDb.put('int:key', 'stable');
+    interruptionDb.flush();
+    interruptionDb.close();
+
+    const interruptionWalPath = path.join(interruptionDir, 'titan.tkv');
+    const interruptionBakPath = interruptionWalPath + '.bak';
+    const interruptionTmpPath = interruptionWalPath + '.tmp';
+
+    fs.copyFileSync(interruptionWalPath, interruptionBakPath);
+    fs.rmSync(interruptionWalPath, { force: true });
+
+    const restoreDb = new TitanKV(interruptionDir, { sync: 'sync' });
+    test('restores main wal from bak artifact', restoreDb.get('int:key') === 'stable');
+    restoreDb.close();
+
+    fs.copyFileSync(interruptionWalPath, interruptionTmpPath);
+    const staleTempDb = new TitanKV(interruptionDir, { sync: 'sync' });
+    staleTempDb.close();
+    test('stale temp artifact cleaned on open', fs.existsSync(interruptionTmpPath) === false);
+
+    try { fs.rmSync(interruptionDir, { recursive: true, force: true }); } catch {}
 
     // === Summary ===
     console.log(`\n\u2554${'═'.repeat(59)}\u2557`);
